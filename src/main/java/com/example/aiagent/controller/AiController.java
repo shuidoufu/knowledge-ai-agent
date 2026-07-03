@@ -1,0 +1,229 @@
+package com.example.aiagent.controller;
+
+import com.example.aiagent.agent.Manus;
+import com.example.aiagent.app.LoveApp;
+import jakarta.annotation.Resource;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import jakarta.servlet.http.HttpServletRequest;
+import com.example.aiagent.model.ChatMessages;
+import com.example.aiagent.model.ChatHistoryDTO;
+import com.example.aiagent.service.AuthService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/ai")
+public class AiController {
+
+    @Resource
+    private LoveApp loveApp;
+
+    @Resource
+    private MongoTemplate mongoTemplate;
+
+    @Resource
+    private AuthService authService;
+
+    private String getUsernameFromRequest(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authService.parseUsername(authHeader.substring(7));
+        }
+        return null;
+    }
+
+    /**
+     * 获取会话历史列表
+     * @param request
+     * @return
+     */
+    @GetMapping("/love_app/chat/history")
+    public ResponseEntity<List<ChatHistoryDTO>> getLoveAppHistory(HttpServletRequest request) {
+        String username = getUsernameFromRequest(request);
+        if (username == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        // Query chats matching love_{username}_
+        Query query = new Query(Criteria.where("conversationId").regex("^love_" + username + "_"));
+        query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
+        List<ChatMessages> chats = mongoTemplate.find(query, ChatMessages.class, "chat_memory");
+
+        List<ChatHistoryDTO> dtoList = chats.stream().map(chat -> {
+            String title = chat.getTitle();
+            if (title == null || title.isBlank()) {
+                title = "未命名会话";
+                if (chat.getMessages() != null && !chat.getMessages().isEmpty()) {
+                    for (ChatMessages.MessageDocument msg : chat.getMessages()) {
+                        if ("user".equalsIgnoreCase(msg.getRole())) {
+                            String text = msg.getContent();
+                            title = text.length() > 20 ? text.substring(0, 20) + "..." : text;
+                            break;
+                        }
+                    }
+                }
+            }
+            return new ChatHistoryDTO(chat.getId(), chat.getConversationId(), title, chat.getCreatedAt());
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtoList);
+    }
+
+    /**
+     * 获取会话历史详情
+     * GET /api/ai/love_app/chat/history/{chatId}
+     */
+    @GetMapping("/love_app/chat/history/{chatId}")
+    public ResponseEntity<List<ChatMessages.MessageDocument>> getLoveAppHistoryDetail(@PathVariable String chatId,
+            HttpServletRequest request) {
+        String username = getUsernameFromRequest(request);
+        if (username == null || !chatId.startsWith("love_" + username + "_")) {
+            return ResponseEntity.status(401).build(); // Basic security to ensure users only access their own chats
+        }
+
+        Query query = new Query(Criteria.where("conversationId").is(chatId));
+        ChatMessages chat = mongoTemplate.findOne(query, ChatMessages.class, "chat_memory");
+
+        if (chat == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(chat.getMessages() != null ? chat.getMessages() : new ArrayList<>());
+    }
+
+    /**
+     * 更新会话标题
+     * PUT /api/ai/love_app/chat/history/{chatId}/title
+     */
+    @PutMapping("/love_app/chat/history/{chatId}/title")
+    public ResponseEntity<Map<String, String>> updateChatTitle(@PathVariable String chatId,
+            @RequestBody Map<String, String> body, HttpServletRequest request) {
+        String username = getUsernameFromRequest(request);
+        if (username == null || !chatId.startsWith("love_" + username + "_")) {
+            return ResponseEntity.status(401).build();
+        }
+        String newTitle = body != null ? body.get("title") : null;
+        if (newTitle == null || newTitle.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "标题不能为空"));
+        }
+        Query query = new Query(Criteria.where("conversationId").is(chatId));
+        ChatMessages chat = mongoTemplate.findOne(query, ChatMessages.class, "chat_memory");
+        if (chat == null) {
+            return ResponseEntity.notFound().build();
+        }
+        chat.setTitle(newTitle);
+        mongoTemplate.save(chat, "chat_memory");
+        return ResponseEntity.ok(Map.of("message", "标题更新成功"));
+    }
+
+    /**
+     * 删除会话
+     * DELETE /api/ai/love_app/chat/history/{chatId}
+     */
+    @DeleteMapping("/love_app/chat/history/{chatId}")
+    public ResponseEntity<Map<String, String>> deleteChat(@PathVariable String chatId,
+            HttpServletRequest request) {
+        String username = getUsernameFromRequest(request);
+        if (username == null || !chatId.startsWith("love_" + username + "_")) {
+            return ResponseEntity.status(401).build();
+        }
+        Query query = new Query(Criteria.where("conversationId").is(chatId));
+        ChatMessages chat = mongoTemplate.findOne(query, ChatMessages.class, "chat_memory");
+        if (chat == null) {
+            return ResponseEntity.notFound().build();
+        }
+        mongoTemplate.remove(chat, "chat_memory");
+        return ResponseEntity.ok(Map.of("message", "会话已删除"));
+    }
+
+    /**
+     * 同步调用 AI 恋爱大师应用
+     *
+     * @param message
+     * @param chatId
+     * @return
+     */
+    @GetMapping("/love_app/chat/sync")
+    public String doChatWithLoveAppSync(String message, String chatId) {
+        return loveApp.doChat(message, chatId);
+    }
+
+    /**
+     * SSE 流式调用 AI 恋爱大师应用
+     *
+     * @param message
+     * @param chatId
+     * @return
+     */
+    @GetMapping(value = "/love_app/chat/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> doChatWithLoveAppSSE(String message, String chatId) {
+        return loveApp.doChatByStream(message, chatId);
+    }
+
+    /**
+     * ============== 当前使用这个接口调用 ==============
+     * 纯文本流式聊天（无 SSE 包装，兼容换行符）
+     */
+    @GetMapping(value = "/love_app/chat/stream", produces = MediaType.TEXT_PLAIN_VALUE)
+    public Flux<String> doChatWithLoveAppStream(String message, String chatId) {
+        return loveApp.doChatByStream(message, chatId);
+    }
+
+    /**
+     * SSE（emitter） 流式调用 AI 恋爱大师应用
+     * @param message
+     * @param chatId
+     * @return
+     */
+    @GetMapping("/love_app/chat/sse/emitter")
+    public SseEmitter doChatWithLoveAppEmitter(String message, String chatId) {
+        SseEmitter sseEmitter = new SseEmitter(180000L);
+        loveApp.doChatByStream(message, chatId).subscribe(chunk -> {
+            try {
+                sseEmitter.send(chunk);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }, sseEmitter::completeWithError, sseEmitter::complete);
+        return sseEmitter;
+    }
+
+
+    @Resource
+    private ToolCallback[] allTools;
+
+    @Resource
+    private ChatModel dashscopeChatModel;
+
+    /**
+     * openManus接口
+     * @param message
+     * @return
+     */
+    @GetMapping("/manus/chat")
+    public SseEmitter doChatWithManus(String message) {
+        return new Manus(allTools, dashscopeChatModel).runStream(message);
+    }
+}

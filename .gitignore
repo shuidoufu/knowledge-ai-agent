@@ -1,0 +1,45 @@
+# === Java / Maven ===  
+target/  
+*.class  
+*.jar  
+*.war  
+*.log  
+  
+# === Node.js ===  
+node_modules/  
+frontend/node_modules/  
+frontend/package-lock.json  
+  
+# === IDE ===  
+.idea/  
+*.iml  
+.vscode/  
+  
+# === OS ===  
+.DS_Store  
+Thumbs.db  
+  
+# === Project specific ===  
+chat_memory/  
+.mongo-data/  
+tmp/  
+  
+# === ZCode ===  
+.zcode/  
+  
+# === Config with secrets ===  
+src/main/resources/application-local.yml  
+src/main/resources/application-prod.yml  
+  
+# === Build artifacts ===  
+build.log  
+compile.log  
+src/main/resources/application.yml  
+start-backend.bat  
+start-mongodb.js  
+start-dev.bat  
+images-search-mcp-server/ 
+.claude/  
+mvn_compile_output*.txt  
+nul  
+.gitattributes 
