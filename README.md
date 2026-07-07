@@ -13,8 +13,8 @@
 | 🧠 **多模型支持** | Spring AI + DashScope SDK + LangChain4J + HTTP 直连，四种调用方式 |
 | 📚 **RAG 知识库** | PostgreSQL + PGVector 向量存储，支持文档检索增强生成 |
 | 💬 **聊天记忆** | MongoDB 持久化聊天记录，支持历史会话管理 |
-| 🔐 **登录鉴权** | JWT Token 认证，支持注册/登录/密码修改 |
-| 🎨 **现代化 UI** | 浅色玻璃拟态风格，流式 Markdown 渲染，移动端自适应 |
+| 🔐 **登录鉴权** | JWT Token 认证，支持注册/登录/密码修改，注册含图片验证码校验 |
+| 🎨 **现代化 UI** | 浅色玻璃拟态风格，流式 Markdown 渲染，移动端自适应，密码显示/隐藏切换 |
 
 ---
 
@@ -113,7 +113,7 @@ ai-agent/
 │   ├── model/             # 数据模型
 │   ├── rag/               # RAG 检索增强（向量存储、文档加载、查询重写）
 │   ├── repository/        # 数据访问层
-│   ├── service/           # 业务逻辑
+│   ├── service/           # 业务逻辑（含 CaptchaService 验证码服务）
 │   └── tool/              # Agent 工具（文件操作、网页搜索、PDF 生成等）
 ├── frontend/
 │   └── src/
@@ -135,8 +135,9 @@ ai-agent/
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/auth/login` | 登录 |
-| POST | `/api/auth/register` | 注册 |
+| POST | `/api/auth/register` | 注册（需图片验证码） |
 | POST | `/api/auth/change-password` | 修改密码 |
+| GET | `/api/auth/captcha` | 获取图片验证码 |
 | GET | `/api/ai/love_app/chat/sse` | 恋爱大师流式对话 |
 | GET | `/api/ai/love_app/chat/stream` | 恋爱大师纯文本流式对话 |
 | GET | `/api/ai/love_app/chat/sync` | 恋爱大师同步对话 |

@@ -1,6 +1,7 @@
 package com.example.aiagent.controller;
 
 import com.example.aiagent.service.AuthService;
+import com.example.aiagent.service.CaptchaService;
 import com.example.aiagent.service.UserService;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,10 +16,12 @@ public class AuthController {
 
     private final UserService userService;
     private final AuthService authService;
+    private final CaptchaService captchaService;
 
-    public AuthController(UserService userService, AuthService authService) {
+    public AuthController(UserService userService, AuthService authService, CaptchaService captchaService) {
         this.userService = userService;
         this.authService = authService;
+        this.captchaService = captchaService;
     }
 
     /**
@@ -65,12 +68,26 @@ public class AuthController {
     }
 
     /**
+     * 获取图片验证码
+     * GET /api/auth/captcha
+     */
+    @GetMapping("/captcha")
+    public Map<String, String> captcha() {
+        return captchaService.generate();
+    }
+
+    /**
      * 注册：创建新用户并直接返回 token
      * POST /api/auth/register
-     * Body: { "username": "...", "password": "..." }
+     * Body: { "username": "...", "password": "...", "captchaKey": "...", "captchaCode": "..." }
      */
     @PostMapping("/register")
     public Map<String, Object> register(@RequestBody Map<String, String> body) {
+        String captchaKey = body != null ? body.get("captchaKey") : null;
+        String captchaCode = body != null ? body.get("captchaCode") : null;
+        if (!captchaService.validate(captchaKey, captchaCode)) {
+            throw new IllegalArgumentException("验证码错误或已过期");
+        }
         String username = body != null ? body.get("username") : null;
         String password = body != null ? body.get("password") : null;
         var user = userService.register(username, password);

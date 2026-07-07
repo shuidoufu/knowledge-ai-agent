@@ -14,10 +14,13 @@
       </svg>
     </div>
 
-    <router-link to="/" class="back-link">← 返回</router-link>
+    <router-link to="/" class="back-link">
+      <svg viewBox="0 0 24 24" fill="none" class="icon"><path d="M19 12H5m7-7l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      返回
+    </router-link>
     <div class="login-card">
       <h1>{{ isRegister ? '注册' : '登录' }}</h1>
-      <p class="hint">登录后可使用 AI 恋爱大师、超级智能体等会话功能</p>
+      <p class="hint">{{ isRegister ? '创建账号后可体验所有 AI 功能' : '登录后可使用 AI 恋爱大师、超级智能体等会话功能' }}</p>
       <form @submit.prevent="submit" class="form" :class="{ shake: shaking }">
         <input
           v-model="username"
@@ -26,13 +29,56 @@
           autocomplete="username"
           class="input"
         />
-        <input
-          v-model="password"
-          type="password"
-          placeholder="密码"
-          autocomplete="current-password"
-          class="input"
-        />
+
+        <div class="pwd-input-wrap">
+          <input
+            v-model="password"
+            :type="showPassword ? 'text' : 'password'"
+            placeholder="密码"
+            autocomplete="current-password"
+            class="input pwd-input"
+          />
+          <button type="button" class="pwd-toggle" @click="showPassword = !showPassword" tabindex="-1">
+            <svg v-if="showPassword" viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
+          </button>
+        </div>
+
+        <!-- 注册模式：确认密码 -->
+        <div v-if="isRegister" class="pwd-input-wrap">
+          <input
+            v-model="confirmPassword"
+            :type="showConfirmPwd ? 'text' : 'password'"
+            placeholder="确认密码"
+            autocomplete="new-password"
+            class="input pwd-input"
+          />
+          <button type="button" class="pwd-toggle" @click="showConfirmPwd = !showConfirmPwd" tabindex="-1">
+            <svg v-if="showConfirmPwd" viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
+          </button>
+        </div>
+
+        <!-- 注册模式：图片验证码 -->
+        <div v-if="isRegister" class="captcha-row">
+          <input
+            v-model="captchaCode"
+            type="text"
+            placeholder="验证码"
+            class="input captcha-input"
+            maxlength="4"
+          />
+          <img
+            v-if="captchaImage"
+            :src="captchaImage"
+            class="captcha-img"
+            alt="验证码"
+            title="点击刷新验证码"
+            @click="fetchCaptcha"
+          />
+          <div v-else class="captcha-placeholder" @click="fetchCaptcha">获取验证码</div>
+        </div>
+
         <p v-if="error" class="error">{{ error }}</p>
         <button type="submit" class="btn" :disabled="loading">
           <span v-if="loading" class="spinner"></span>
@@ -44,7 +90,7 @@
           {{ isRegister ? '已有账号？去登录' : '没有账号？去注册' }}
         </a>
       </div>
-      <p class="demo-hint">演示账号：admin / admin</p>
+      <p v-if="!isRegister" class="demo-hint">演示账号：admin / admin</p>
     </div>
   </div>
 </template>
@@ -59,10 +105,16 @@ const router = useRouter()
 const route = useRoute()
 const username = ref('')
 const password = ref('')
+const confirmPassword = ref('')
+const captchaCode = ref('')
+const captchaImage = ref('')
+const captchaKey = ref('')
 const error = ref('')
 const loading = ref(false)
 const isRegister = ref(false)
 const shaking = ref(false)
+const showPassword = ref(false)
+const showConfirmPwd = ref(false)
 
 onMounted(() => {
   if (route.query.returnUrl) return
@@ -70,14 +122,29 @@ onMounted(() => {
   password.value = 'admin'
 })
 
+async function fetchCaptcha() {
+  try {
+    const { data } = await request.get('/auth/captcha')
+    captchaKey.value = data.captchaKey
+    captchaImage.value = data.captchaImage
+  } catch (e) {
+    console.error('Failed to fetch captcha:', e)
+  }
+}
+
 function toggleMode() {
   isRegister.value = !isRegister.value
   error.value = ''
+  confirmPassword.value = ''
+  captchaCode.value = ''
+  captchaImage.value = ''
+  captchaKey.value = ''
   if (isRegister.value) {
     if (username.value === 'admin' && password.value === 'admin') {
       username.value = ''
       password.value = ''
     }
+    fetchCaptcha()
   }
 }
 
@@ -90,21 +157,54 @@ async function submit() {
     setTimeout(() => { shaking.value = false }, 500)
     return
   }
+
+  // 注册模式校验
+  if (isRegister.value) {
+    if (!confirmPassword.value) {
+      error.value = '请确认密码'
+      shaking.value = true
+      await nextTick()
+      setTimeout(() => { shaking.value = false }, 500)
+      return
+    }
+    if (password.value !== confirmPassword.value) {
+      error.value = '两次输入的密码不一致'
+      shaking.value = true
+      await nextTick()
+      setTimeout(() => { shaking.value = false }, 500)
+      return
+    }
+    if (!captchaCode.value) {
+      error.value = '请输入验证码'
+      shaking.value = true
+      await nextTick()
+      setTimeout(() => { shaking.value = false }, 500)
+      return
+    }
+  }
+
   loading.value = true
   try {
     const url = isRegister.value ? '/auth/register' : '/auth/login'
-    const { data } = await request.post(url, {
+    const body = {
       username: username.value.trim(),
       password: password.value,
-    })
+    }
+    if (isRegister.value) {
+      body.captchaKey = captchaKey.value
+      body.captchaCode = captchaCode.value
+    }
+    const { data } = await request.post(url, body)
     setToken(data.token, data.username)
     const returnUrl = route.query.returnUrl || '/'
     await router.replace(returnUrl)
   } catch (e) {
-    error.value = e.response?.data?.message || e.message || '登录失败，请重试'
+    error.value = e.response?.data?.message || e.message || '操作失败，请重试'
     shaking.value = true
     await nextTick()
     setTimeout(() => { shaking.value = false }, 500)
+    // 注册失败时刷新验证码
+    if (isRegister.value) fetchCaptcha()
   } finally {
     loading.value = false
   }
@@ -143,19 +243,34 @@ async function submit() {
   position: absolute;
   top: 1.25rem;
   left: 1.5rem;
-  color: #64748b;
+  color: #6366f1;
   text-decoration: none;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  transition: color 0.2s;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.4);
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
   z-index: 1;
 }
-.back-link:hover { color: #3b82f6; }
+.back-link .icon {
+  width: 16px;
+  height: 16px;
+}
+.back-link:hover {
+  background: rgba(255,255,255,0.9);
+  color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.1);
+}
 .login-card {
   width: 100%;
-  max-width: 360px;
+  max-width: 380px;
   padding: 2rem;
   border-radius: 20px;
   background: rgba(255,255,255,0.75);
@@ -271,5 +386,85 @@ async function submit() {
 .toggle-mode a:hover {
   color: #4f46e5;
   text-decoration: underline;
+}
+
+/* 验证码行 */
+.captcha-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+}
+.captcha-input {
+  flex: 1;
+  min-width: 0;
+  letter-spacing: 0.15em;
+}
+.captcha-img {
+  width: 90px;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+}
+.captcha-img:hover {
+  opacity: 0.8;
+}
+.captcha-placeholder {
+  width: 90px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.2s, color 0.2s;
+}
+.captcha-placeholder:hover {
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+/* 密码输入框显示/隐藏 */
+.pwd-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.pwd-input {
+  width: 100%;
+  padding-right: 2.5rem !important;
+}
+.pwd-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
+  padding: 0;
+}
+.pwd-toggle:hover {
+  color: #6366f1;
+  background: rgba(99,102,241,0.06);
+}
+.pwd-eye-icon {
+  width: 20px;
+  height: 20px;
 }
 </style>

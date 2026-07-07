@@ -1,7 +1,10 @@
 <template>
   <div class="chat-page">
     <header class="chat-header">
-      <router-link to="/" class="back">← 返回</router-link>
+      <router-link to="/" class="back">
+        <svg viewBox="0 0 24 24" fill="none" class="icon"><path d="M19 12H5m7-7l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        返回
+      </router-link>
       <h1>AI 超级智能体</h1>
     </header>
     <div class="messages" ref="messagesRef">
@@ -63,7 +66,7 @@
 <script setup>
 import { ref, computed, nextTick } from 'vue'
 import { streamManusChat } from '../api/request'
-import { getUsername } from '../utils/auth'
+import { username as reactiveUsername } from '../utils/auth'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
@@ -73,11 +76,11 @@ const loading = ref(false)
 const messagesRef = ref(null)
 
 const userAvatarLetter = computed(() => {
-  const name = getUsername()
+  const name = reactiveUsername.value
   return name ? name.trim().charAt(0).toUpperCase() : '?'
 })
 const userAvatarColor = computed(() => {
-  const name = getUsername()
+  const name = reactiveUsername.value
   if (!name) return '#64748b'
   let n = 0
   for (let i = 0; i < name.length; i++) n += name.charCodeAt(i)
@@ -154,14 +157,24 @@ function send() {
   box-shadow: 0 1px 4px rgba(99,102,241,0.06);
 }
 .back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   color: #6366f1;
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 500;
   padding: 6px 14px;
-  border-radius: 10px;
+  border-radius: 999px;
   background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(255,255,255,0.3);
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.back .icon {
+  width: 16px;
+  height: 16px;
 }
 .back:hover {
   background: rgba(99,102,241,0.15);
@@ -208,16 +221,17 @@ function send() {
 }
 .chat-avatar {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #fff;
   background: transparent;
+  margin-top: 10px;
 }
 .chat-avatar.assistant {
   background: transparent;

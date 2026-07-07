@@ -19,7 +19,7 @@
           <div class="history-item-main" @click="loadHistoryChat(chat.chatId)">
             <!-- 编辑标题模式 -->
             <template v-if="editingChatId === chat.chatId">
-              <input class="edit-title-input" v-model="editTitleText" @keydown.enter.prevent="saveTitle(chat.chatId)" @blur="saveTitle(chat.chatId)" @click.stop autofocus />
+              <input class="edit-title-input" v-model="editTitleText" @keydown.enter.prevent="saveTitle(chat.chatId)" @keydown.escape.prevent="cancelEdit" @blur="saveTitle(chat.chatId)" @click.stop autofocus />
             </template>
             <template v-else>
               <div class="history-title">{{ chat.title }}</div>
@@ -27,8 +27,12 @@
             </template>
           </div>
           <div class="history-item-actions">
-            <button class="history-action-btn edit" @click.stop="startEditTitle(chat)" title="编辑标题">✎</button>
-            <button class="history-action-btn delete" @click.stop="confirmDeleteChatId = chat.chatId" title="删除会话">✕</button>
+            <button class="history-action-btn edit" @mousedown.prevent.stop="startEditTitle(chat)" title="编辑标题">
+              <svg viewBox="0 0 24 24" fill="none" class="icon"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="history-action-btn delete" @click.stop="confirmDeleteChatId = chat.chatId" title="删除会话">
+              <svg viewBox="0 0 24 24" fill="none" class="icon"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m5 4v7m4-7v7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
           </div>
         </div>
       </div>
@@ -37,8 +41,8 @@
       </div>
     </div>
 
-    <!-- 侧边栏边缘切换按钮：打开时显示←，关闭时显示→ -->
-    <button class="toggle-sidebar-btn" :class="{ collapsed: !isSidebarOpen }" @click="isSidebarOpen = !isSidebarOpen" :title="isSidebarOpen ? '收起历史会话' : '展开历史会话'">
+    <!-- 侧边栏边缘切换按钮 -->
+    <button class="toggle-sidebar-btn" :class="{ collapsed: !isSidebarOpen }" @click="toggleSidebar" :title="isSidebarOpen ? '收起历史会话' : '展开历史会话'">
       <svg v-if="isSidebarOpen" viewBox="0 0 24 24" fill="none" class="icon"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <svg v-else viewBox="0 0 24 24" fill="none" class="icon"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
@@ -47,8 +51,11 @@
     <div class="chat-container">
         <div class="header">
           <div class="header-left">
-            <button class="back-btn" @click="$router.push('/')">← 返回</button>
-            <h2>{{ currentChatTitle }}</h2>
+            <button class="back-btn" @click="$router.push('/')">
+              <svg viewBox="0 0 24 24" fill="none" class="icon"><path d="M19 12H5m7-7l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              返回
+            </button>
+            <h2 class="header-title">{{ currentChatTitle }}</h2>
           </div>
         <div class="header-right">
           <span class="chat-id-display">{{ chatId }}</span>
@@ -75,20 +82,13 @@
           <template v-if="msg.role === 'assistant'">
             <div class="robot-avatar">
               <svg viewBox="0 0 48 48" fill="none" class="robot-svg">
-                <!-- 天线 -->
                 <line x1="24" y1="4" x2="24" y2="12" stroke="url(#robotGrad)" stroke-width="2.5" stroke-linecap="round" class="antenna"/>
                 <circle cx="24" cy="3" r="2.5" fill="#6366f1" class="antenna-dot"/>
-                <!-- 头部 -->
                 <rect x="10" y="12" width="28" height="20" rx="6" stroke="url(#robotGrad)" stroke-width="2" fill="rgba(99,102,241,0.08)"/>
-                <!-- 左眼 -->
                 <circle cx="19" cy="22" r="3.5" fill="#6366f1" class="eye eye-left"/>
-                <!-- 右眼 -->
                 <circle cx="29" cy="22" r="3.5" fill="#6366f1" class="eye eye-right"/>
-                <!-- 嘴巴 -->
                 <line x1="18" y1="28" x2="30" y2="28" stroke="#818cf8" stroke-width="1.8" stroke-linecap="round" class="mouth"/>
-                <!-- 身体 -->
                 <rect x="14" y="32" width="20" height="10" rx="3" stroke="url(#robotGrad)" stroke-width="1.5" fill="rgba(99,102,241,0.04)"/>
-                <!-- 装饰点 -->
                 <circle cx="24" cy="37" r="1.5" fill="#818cf8" class="body-dot"/>
                 <defs>
                   <linearGradient id="robotGrad" x1="0" y1="0" x2="48" y2="48">
@@ -150,9 +150,9 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, inject } from 'vue'
 import { streamLoveChat, request, updateChatTitle, deleteChat } from '../api/request'
-import { getUsername } from '../utils/auth'
+import { username as reactiveUsername } from '../utils/auth'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
@@ -162,8 +162,11 @@ const inputText = ref('')
 const loading = ref(false)
 const messagesRef = ref(null)
 
+// Sidebar state from App.vue
+const isSidebarOpen = inject('isSidebarOpen', ref(true))
+const setSidebarOpen = inject('setSidebarOpen', (v) => {})
+
 // History state
-const isSidebarOpen = ref(true)
 const historyList = ref([])
 
 // 编辑标题状态
@@ -180,11 +183,11 @@ const currentChatTitle = computed(() => {
 })
 
 const userAvatarLetter = computed(() => {
-  const name = getUsername()
+  const name = reactiveUsername.value
   return name ? name.trim().charAt(0).toUpperCase() : '?'
 })
 const userAvatarColor = computed(() => {
-  const name = getUsername()
+  const name = reactiveUsername.value
   if (!name) return '#64748b'
   let n = 0
   for (let i = 0; i < name.length; i++) n += name.charCodeAt(i)
@@ -193,7 +196,7 @@ const userAvatarColor = computed(() => {
 })
 
 function generateChatId() {
-  const name = getUsername() || 'anonymous'
+  const name = reactiveUsername.value || 'anonymous'
   return `love_${name}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
 }
 
@@ -209,7 +212,7 @@ async function fetchHistoryList() {
 async function loadHistoryChat(loadChatId) {
   if (chatId.value === loadChatId) return
   if (window.innerWidth <= 768) {
-    isSidebarOpen.value = false // close sidebar on mobile after selection
+    isSidebarOpen.value = false
   }
   try {
     const res = await request.get(`/ai/love_app/chat/history/${loadChatId}`)
@@ -232,19 +235,54 @@ function createNewChat() {
   }
 }
 
+// 侧边栏切换（同步到 App.vue）
+function toggleSidebar() {
+  isSidebarOpen.value = !isSidebarOpen.value
+}
+
 // 编辑标题
 function startEditTitle(chat) {
+  // 如果已在编辑此会话：保存并退出编辑模式
+  if (editingChatId.value === chat.chatId) {
+    saveTitleImmediate(chat.chatId)
+    return
+  }
+  // 如果正在编辑另一个会话，先保存
+  if (editingChatId.value) {
+    saveTitleImmediate(editingChatId.value)
+  }
+  // 进入编辑模式
   editingChatId.value = chat.chatId
   editTitleText.value = chat.title
 }
-async function saveTitle(chatId) {
+function cancelEdit() {
+  editingChatId.value = ''
+  editTitleText.value = ''
+}
+async function saveTitle(chatIdToSave) {
+  // 如果已经退出编辑模式（例如由 mousedown 处理），跳过 blur 回调
+  if (editingChatId.value !== chatIdToSave) return
+  const title = editTitleText.value.trim()
+  if (!title) {
+    editingChatId.value = ''
+    return
+  }
+  // If title hasn't changed, just close edit
+  const original = historyList.value.find(c => c.chatId === chatIdToSave)?.title
+  if (title === original) {
+    editingChatId.value = ''
+    return
+  }
+  await saveTitleImmediate(chatIdToSave)
+}
+async function saveTitleImmediate(chatIdToSave) {
   const title = editTitleText.value.trim()
   if (!title) {
     editingChatId.value = ''
     return
   }
   try {
-    await updateChatTitle(chatId, title)
+    await updateChatTitle(chatIdToSave, title)
     editingChatId.value = ''
     fetchHistoryList()
   } catch (error) {
@@ -252,12 +290,12 @@ async function saveTitle(chatId) {
     editingChatId.value = ''
   }
 }
+
 // 删除会话
 async function doDeleteChat(deleteId) {
   try {
     await deleteChat(deleteId)
     confirmDeleteChatId.value = ''
-    // 如果删除的是当前会话，清空消息
     if (deleteId === chatId.value) {
       createNewChat()
     }
@@ -272,7 +310,6 @@ onMounted(() => {
   chatId.value = generateChatId()
   fetchHistoryList()
   
-  // Close sidebar by default on smaller screens
   if (window.innerWidth <= 768) {
     isSidebarOpen.value = false
   }
@@ -281,8 +318,6 @@ onMounted(() => {
 /** AI 回复：渲染为安全的 Markdown HTML */
 function renderMarkdown(content) {
   if (!content) return ''
-  // marked.parse handles \n naturally, creating paragraphs.
-  // Add target="_blank" to links so they don't block the app.
   const renderer = new marked.Renderer()
   renderer.link = ({ href, title, text }) => `<a target="_blank" href="${href}" title="${title || ''}">${text}</a>`
   renderer.heading = ({ depth, text }) => `<h${depth}>${text}</h${depth}>`
@@ -317,14 +352,12 @@ function send() {
     onDone() {
       loading.value = false
       scrollToBottom()
-      // Save message to simulated local state (or refetch history quietly)
       fetchHistoryList()
     },
     onError(err) {
       messages.value[aiIndex].content = '回复失败：' + (err?.message || '网络错误')
       loading.value = false
       scrollToBottom()
-      // Save message to simulated local state (or refetch history quietly)
       fetchHistoryList()
     },
   })
@@ -343,8 +376,8 @@ function send() {
 
 /* Sidebar Styles */
 .sidebar {
-  width: 300px;
-  min-width: 300px;
+  width: 260px;
+  min-width: 260px;
   background: rgba(255,255,255,0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -361,7 +394,7 @@ function send() {
   margin-left: 0;
 }
 .sidebar:not(.sidebar-open) {
-  margin-left: -300px;
+  margin-left: -260px;
   border-right: none;
 }
 
@@ -412,7 +445,7 @@ function send() {
 .toggle-sidebar-btn {
   position: absolute;
   top: 50%;
-  left: 300px;
+  left: 260px;
   transform: translateY(-50%) translateX(-50%);
   z-index: 50;
   display: flex;
@@ -438,7 +471,6 @@ function send() {
   width: 18px;
   height: 18px;
 }
-/* 侧边栏关闭时，按钮移到页面左边缘，箭头变为 → */
 .toggle-sidebar-btn.collapsed {
   left: 0;
   transform: translateY(-50%) translateX(0);
@@ -481,7 +513,7 @@ function send() {
 }
 .history-item-main {
   cursor: pointer;
-  padding: 12px 8px 12px 16px;
+  padding: 12px 72px 12px 16px;
 }
 .history-title {
   color: #1e293b;
@@ -503,36 +535,32 @@ function send() {
 }
 
 /* 历史项操作按钮 */
-.history-item {
-  position: relative;
-}
-.history-item-main {
-  cursor: pointer;
-  padding: 12px 12px 12px 24px;
-}
 .history-item-actions {
   display: none;
   position: absolute;
   right: 8px;
   top: 10px;
-  gap: 4px;
+  gap: 6px;
 }
 .history-item:hover .history-item-actions {
   display: flex;
 }
 .history-action-btn {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: none;
   border-radius: 6px;
   background: rgba(99,102,241,0.1);
   color: #6366f1;
-  font-size: 0.8rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.2s, color 0.2s;
+}
+.history-action-btn .icon {
+  width: 16px;
+  height: 16px;
 }
 .history-action-btn:hover {
   background: rgba(99,102,241,0.2);
@@ -542,6 +570,8 @@ function send() {
   background: rgba(239,68,68,0.15);
   color: #ef4444;
 }
+
+/* 编辑标题行 */
 .edit-title-input {
   width: 100%;
   padding: 4px 8px;
@@ -563,14 +593,10 @@ function send() {
 }
 .chat-user-letter {
   font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #6366f1;
   text-shadow: 0 0 8px rgba(99,102,241,0.2);
-}
-.chat-avatar .avatar-icon {
-  width: 20px;
-  height: 20px;
 }
 
 /* AI 机器人头像 */
@@ -586,7 +612,6 @@ function send() {
   height: 40px;
   overflow: visible;
 }
-/* 天线闪烁 */
 .antenna-dot {
   animation: dotPulse 2s ease-in-out infinite;
 }
@@ -594,7 +619,6 @@ function send() {
   0%, 100% { opacity: 1; r: 2.5; }
   50% { opacity: 0.4; r: 2; }
 }
-/* 眼睛眨动 */
 .eye {
   animation: eyeBlink 4s ease-in-out infinite;
 }
@@ -604,7 +628,6 @@ function send() {
   0%, 96%, 100% { opacity: 1; ry: 3.5; }
   98% { opacity: 0.3; ry: 0.5; }
 }
-/* 嘴巴微动 */
 .mouth {
   animation: mouthMove 3s ease-in-out infinite;
 }
@@ -612,7 +635,6 @@ function send() {
   0%, 100% { x1: 18; x2: 30; }
   50% { x1: 20; x2: 28; }
 }
-/* 身体呼吸 */
 .body-dot {
   animation: bodyBreathe 3s ease-in-out infinite;
 }
@@ -620,7 +642,6 @@ function send() {
   0%, 100% { opacity: 0.6; r: 1.5; }
   50% { opacity: 1; r: 2; }
 }
-/* 整体浮动 */
 .chat-avatar.assistant {
   animation: float 4s ease-in-out infinite;
 }
@@ -750,32 +771,48 @@ function send() {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  flex-shrink: 1;
 }
 .header-right {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 .back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   background: rgba(99,102,241,0.08);
-  border: none;
+  border: 1px solid rgba(255,255,255,0.3);
   color: #6366f1;
   padding: 6px 14px;
-  border-radius: 10px;
+  border-radius: 999px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.back-btn .icon {
+  width: 16px;
+  height: 16px;
 }
 .back-btn:hover {
   background: rgba(99,102,241,0.15);
   color: #4f46e5;
   box-shadow: 0 2px 8px rgba(99,102,241,0.1);
 }
-.header h2 {
+.header-title {
   font-size: 1.1rem;
   margin: 0;
   color: #1e293b;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .chat-id-display {
   font-size: 0.75rem;
@@ -867,7 +904,7 @@ function send() {
 .message-row {
   display: flex;
   align-items: flex-start;
-  gap: 0.6rem;
+  gap: 0.75rem;
   max-width: 92%;
 }
 .message-row.assistant {
@@ -879,18 +916,19 @@ function send() {
 }
 .chat-avatar {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #fff;
   background: transparent;
+  margin-top: 10px;
 }
-	.bubble-content {
+.bubble-content {
   padding: 1rem 1.5rem;
   border-radius: 14px;
   white-space: normal;
@@ -924,7 +962,6 @@ function send() {
 .markdown-body :deep(p:last-child) {
   margin-bottom: 0;
 }
-/* 有序列表 - 层级编号 */
 .markdown-body :deep(ol) {
   margin-bottom: 0.8em;
   padding-left: 1.8em;
@@ -947,7 +984,6 @@ function send() {
   color: #6366f1;
   font-weight: 600;
 }
-/* 无序列表 */
 .markdown-body :deep(ul) {
   margin-bottom: 0.8em;
   padding-left: 1.5em;
@@ -971,13 +1007,11 @@ function send() {
   border-radius: 50%;
   background: #a5b4fc;
 }
-/* 多级列表缩进 */
 .markdown-body :deep(ul ul), .markdown-body :deep(ol ul),
 .markdown-body :deep(ul ol), .markdown-body :deep(ol ol) {
   margin-top: 0.4em;
   margin-bottom: 0.4em;
 }
-/* 标题层级（h3 用于建议标题，带左边框） */
 .markdown-body :deep(h1), .markdown-body :deep(h2), .markdown-body :deep(h3),
 .markdown-body :deep(h4), .markdown-body :deep(h5), .markdown-body :deep(h6) {
   margin-top: 1.4em;
@@ -1002,7 +1036,6 @@ function send() {
   color: #0f172a;
   font-weight: 600;
 }
-/* 引用块 - 分析/共情段落 */
 .markdown-body :deep(blockquote) {
   margin: 1em 0;
   padding: 0.8em 1.2em;
@@ -1018,14 +1051,12 @@ function send() {
 .markdown-body :deep(blockquote p:last-child) {
   margin-bottom: 0;
 }
-/* 分割线 */
 .markdown-body :deep(hr) {
   margin: 1.2em 0;
   border: none;
   height: 1px;
   background: linear-gradient(90deg, transparent, #e0e7ff, transparent);
 }
-/* 代码 */
 .markdown-body :deep(code) {
   background: #f1f5f9;
   padding: 0.2em 0.4em;
@@ -1118,7 +1149,7 @@ function send() {
     left: 0;
     top: 0;
     bottom: 0;
-    width: 300px;
+    width: 260px;
     margin-left: 0;
     transform: translateX(-100%);
     transition: transform 0.3s ease;
@@ -1128,7 +1159,7 @@ function send() {
   }
   .sidebar.sidebar-open {
     transform: translateX(0);
-    width: 300px;
+    width: 260px;
     box-shadow: 5px 0 30px rgba(0,0,0,0.1);
   }
   .sidebar:not(.sidebar-open) {

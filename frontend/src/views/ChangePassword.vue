@@ -1,6 +1,9 @@
 <template>
   <div class="change-password-page">
-    <router-link to="/" class="back-link">← 返回应用中心</router-link>
+    <router-link to="/" class="back-link">
+      <svg viewBox="0 0 24 24" fill="none" class="icon"><path d="M19 12H5m7-7l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      返回应用中心
+    </router-link>
     <div class="card">
       <h1>修改密码</h1>
       <p class="hint">为了保证安全，修改密码后会自动登出，请使用新密码重新登录。</p>
@@ -8,33 +11,51 @@
       <form @submit.prevent="submit" class="form">
         <div class="form-group">
           <label for="oldPassword">原密码</label>
-          <input
-            id="oldPassword"
-            v-model="oldPassword"
-            type="password"
-            placeholder="请输入当前密码"
-            class="input"
-          />
+          <div class="pwd-input-wrap">
+            <input
+              id="oldPassword"
+              v-model="oldPassword"
+              :type="showOldPwd ? 'text' : 'password'"
+              placeholder="请输入当前密码"
+              class="input pwd-input"
+            />
+            <button type="button" class="pwd-toggle" @click="showOldPwd = !showOldPwd" tabindex="-1">
+              <svg v-if="showOldPwd" viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
+            </button>
+          </div>
         </div>
         <div class="form-group">
           <label for="newPassword">新密码</label>
-          <input
-            id="newPassword"
-            v-model="newPassword"
-            type="password"
-            placeholder="请输入新密码"
-            class="input"
-          />
+          <div class="pwd-input-wrap">
+            <input
+              id="newPassword"
+              v-model="newPassword"
+              :type="showNewPwd ? 'text' : 'password'"
+              placeholder="请输入新密码"
+              class="input pwd-input"
+            />
+            <button type="button" class="pwd-toggle" @click="showNewPwd = !showNewPwd" tabindex="-1">
+              <svg v-if="showNewPwd" viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
+            </button>
+          </div>
         </div>
         <div class="form-group">
           <label for="confirmPassword">确认新密码</label>
-          <input
-            id="confirmPassword"
-            v-model="confirmPassword"
-            type="password"
-            placeholder="请再次输入新密码"
-            class="input"
-          />
+          <div class="pwd-input-wrap">
+            <input
+              id="confirmPassword"
+              v-model="confirmPassword"
+              :type="showConfirmPwd ? 'text' : 'password'"
+              placeholder="请再次输入新密码"
+              class="input pwd-input"
+            />
+            <button type="button" class="pwd-toggle" @click="showConfirmPwd = !showConfirmPwd" tabindex="-1">
+              <svg v-if="showConfirmPwd" viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
+            </button>
+          </div>
         </div>
         
         <p v-if="error" class="error">{{ error }}</p>
@@ -61,6 +82,9 @@ const confirmPassword = ref('')
 const error = ref('')
 const successMsg = ref('')
 const loading = ref(false)
+const showOldPwd = ref(false)
+const showNewPwd = ref(false)
+const showConfirmPwd = ref(false)
 
 async function submit() {
   error.value = ''
@@ -126,16 +150,29 @@ async function submit() {
   position: absolute;
   top: 1.5rem;
   left: 2rem;
-  color: #64748b;
+  color: #6366f1;
   text-decoration: none;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  transition: color 0.2s;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.4);
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.back-link .icon {
+  width: 16px;
+  height: 16px;
 }
 .back-link:hover {
-  color: #3b82f6;
+  background: rgba(255,255,255,0.9);
+  color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.1);
 }
 .card {
   width: 100%;
@@ -231,5 +268,42 @@ async function submit() {
   opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+/* 密码输入框显示/隐藏 */
+.pwd-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.pwd-input {
+  width: 100%;
+  padding-right: 2.5rem !important;
+}
+.pwd-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
+  padding: 0;
+}
+.pwd-toggle:hover {
+  color: #3b82f6;
+  background: rgba(59,130,246,0.06);
+}
+.pwd-eye-icon {
+  width: 20px;
+  height: 20px;
 }
 </style>
