@@ -75,6 +75,11 @@ npm install
 npm run dev
 ```
 
+### 2️⃣ 启动虚拟机前后端
+1. 后端进行jar打包，上传至虚拟机中
+2. 前端进行npm run build，将dist文件上传至虚拟机中
+
+
 ### 3️⃣ 访问
 
 | 服务 | 地址 |
@@ -149,6 +154,13 @@ ai-agent/
 - **MCP 客户端**：默认禁用，如需启用请配置 `mcp-servers.json`
 - **向量库**：PGVector 维度 1536，HNSW 索引，余弦距离
 - **前端 UI**：使用 `/ui-ux-pro-max` 技能获取设计规范
+
+---
+
+## 虚拟机相关配置说明
+1. 修改前端nginx.conf文件中的server_name为虚拟机IP地址。
+2. 修改后端application.yml文件中的数据库连接地址为虚拟机IP地址。（MongoDB数据库等）
+3. 修改前端中requests.js文件中的BASE_URL地址为虚拟机IP地址。
 
 ---
 

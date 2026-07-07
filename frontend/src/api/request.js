@@ -1,7 +1,8 @@
 import axios from 'axios'
 import { getToken, removeToken } from '../utils/auth'
 
-const BASE_URL = import.meta.env.DEV ? '' : 'http://localhost:8123'
+// const BASE_URL = import.meta.env.DEV ? '' : 'http://localhost:8123'
+const BASE_URL = import.meta.env.DEV ? '' : 'http://192.168.198.100' // 用于服务器/虚拟机
 
 export const request = axios.create({
   baseURL: BASE_URL + '/api',

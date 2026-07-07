@@ -297,10 +297,20 @@ DELETE /api/xxx/{id}     删除
 ### 7.4 AI 相关接口
 
 ```
-POST   /api/ai/chat         对话接口（通用）
-POST   /api/ai/agent/chat   Agent 对话（Manus 模式）
-GET    /api/ai/history      获取聊天历史
+POST   /api/ai/chat            对话接口（通用）
+POST   /api/ai/agent/chat      Agent 对话（Manus 模式）
+GET    /api/ai/history         获取聊天历史
+GET    /api/ai/love_app/chat/sse        恋爱大师 SSE 流式对话
+GET    /api/ai/love_app/chat/stream     恋爱大师纯文本流式对话（推荐，无 SSE 包装）
+GET    /api/ai/love_app/chat/sync       恋爱大师同步对话
+GET    /api/ai/love_app/chat/history    历史会话列表
+GET    /api/ai/love_app/chat/history/{chatId}  历史会话详情
+PUT    /api/ai/love_app/chat/history/{chatId}/title  更新会话标题
+DELETE /api/ai/love_app/chat/history/{chatId}        删除会话
 ```
+
+> **SSE 流注意事项**：`/sse` 端点的 `data:` + `\n\n` 包装与 AI token 中的换行符冲突，
+> 推荐使用 `/stream` 端点（`TEXT_PLAIN`，裸文本流），前端无需 SSE 解析，直接 `onChunk(raw)`。
 
 ### 7.5 认证接口
 
@@ -433,6 +443,21 @@ feat(agent): add Manus tool calling support
 3. 开发完成后提交 PR 到 `dev`
 4. Code Review 通过后合并
 
+### 11.4 .gitignore 规则
+
+项目 `.gitignore` 已排除以下内容：
+
+| 类别 | 排除项 |
+|------|--------|
+| 构建产物 | `target/`, `*.class`, `*.jar`, `*.war` |
+| 依赖 | `node_modules/`, `frontend/node_modules/` |
+| IDE | `.idea/`, `*.iml`, `.vscode/` |
+| 敏感配置 | `application.yml`, `application-*.yml`（含 API Key / 密码） |
+| 运行时数据 | `chat_memory/`, `.mongo-data/`, `tmp/` |
+| AI 技能 | `.zcode/`, `.claude/` |
+| 日志 | `*.log`, `build.log`, `compile.log` |
+| 临时文件 | `nul` |
+
 ---
 
 ## 12. 日志规范
@@ -515,11 +540,12 @@ XxxControllerTest
 
 ### 15.1 多环境配置
 
-| 文件 | 用途 |
-|------|------|
-| `application.yml` | 公共配置（默认激活） |
-| `application-local.yml` | 本地开发环境 |
-| `application-prod.yml` | 生产环境 |
+| 文件 | 用途 | 是否提交 Git |
+|------|------|-------------|
+| `application.yml` | 公共配置（含 API Key/密码，已 .gitignore） | ❌ 否 |
+| `prompt.yaml` | AI 系统提示词 | ✅ 是 |
+| `application-local.yml` | 本地开发环境 | ❌ 否 |
+| `application-prod.yml` | 生产环境 | ❌ 否 |
 
 ### 15.2 敏感信息管理
 
@@ -576,11 +602,12 @@ XxxControllerTest
 ## 附录 A：常用命令
 
 ```bash
-# 后端启动
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+# 后端启动（须设置 Java 17 + --enable-preview）
+set JAVA_HOME=<Java 17 路径>
+mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.jvmArguments="--enable-preview"
 
 # 后端构建
-./mvnw clean package -DskipTests
+mvnw.cmd clean package -DskipTests
 
 # 前端启动
 cd frontend && npm run dev
@@ -588,6 +615,10 @@ cd frontend && npm run dev
 # 前端构建
 cd frontend && npm run build
 ```
+
+> **注意**：项目使用了 Java 17 预览特性（`patterns in switch`），
+> 编译（`pom.xml` 中 `maven-compiler-plugin`）和运行（`spring-boot-maven-plugin`）均需配置 `--enable-preview`。
+> IntelliJ IDEA 需设置 `.iml` 文件的 `LANGUAGE_LEVEL="JDK_17_PREVIEW"`。
 
 ## 附录 B：IDE 配置
 
@@ -597,9 +628,12 @@ cd frontend && npm run build
   - Spring Assistant
   - Vue.js
   - Maven Helper
+- **IDEA 预览特性设置**：
+  - `File → Settings → Build → Compiler → Java Compiler` → `Additional command line parameters` 填入 `--enable-preview`
+  - 或确保 `ai-agent.iml` 中 `LANGUAGE_LEVEL="JDK_17_PREVIEW"`
 
 ---
 
-> **维护人**：项目团队 | **最后更新**：2026-06-30
+> **维护人**：项目团队 | **最后更新**：2026-07-03
 >
 > 本文档应随项目演进持续更新，所有团队成员的 PR 涉及新增功能或架构变更时，应同步更新本文档。
