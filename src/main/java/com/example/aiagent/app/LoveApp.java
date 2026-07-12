@@ -9,12 +9,14 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -29,15 +31,21 @@ import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvis
 public class LoveApp {
 
     private final ChatClient chatClient;
+    private final String SYSTEM_PROMPT;    // 构造函数注入系统提示词
+    @Resource
+    private ToolCallback[] allTools;
+
 
     // MongoChatMemory,构造器注入，因为@Resource属于属性注入，晚于构造器
-    public LoveApp(ChatModel dashScopeChatModel, MongoChatMemory mongoChatMemory,
-                   @Value("${love-advisor.system-prompt}") String SYSTEM_PROMPT) {
-        // 初始化基于文件的对话记忆
-        String fileDir = System.getProperty("user.dir") + "\\chat_memory";
-        ChatMemory chatMemory = new FileBasedChatMemory(fileDir);
+    public LoveApp(@Qualifier("openAiChatModel") ChatModel chatModel, MongoChatMemory mongoChatMemory, @Value("${love-advisor.system-prompt}") String SYSTEM_PROMPT) {
+        // 注入提示词
+        this.SYSTEM_PROMPT = SYSTEM_PROMPT;
 
-        chatClient = ChatClient.builder(dashScopeChatModel)
+        // // 初始化基于文件的对话记忆
+        // String fileDir = System.getProperty("user.dir") + "\\chat_memory";
+        // ChatMemory chatMemory = new FileBasedChatMemory(fileDir);
+
+        chatClient = ChatClient.builder(chatModel)
                 .defaultSystem(SYSTEM_PROMPT)
                 .defaultAdvisors(
                         // 基于内存
@@ -77,9 +85,6 @@ public class LoveApp {
     record LoveReport(String title, List<String> suggestions) {
 
     }
-
-    @Value("${love-advisor.system-prompt}")
-    private String SYSTEM_PROMPT;
 
     /**
      * AI 报告功能（结构化输出）
@@ -140,8 +145,6 @@ public class LoveApp {
         return content;
     }
 
-    @Resource
-    private ToolCallback[] allTools;
     /**
      * AI 恋爱报告功能（支持调用工具）
      */

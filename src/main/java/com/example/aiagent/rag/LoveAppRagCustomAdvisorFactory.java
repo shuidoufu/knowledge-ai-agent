@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 public class LoveAppRagCustomAdvisorFactory {
 
     /**
-     *  * 创建一个自定义的 RAG 检索增强顾问
+     *  * 创建一个自定义的 RAG 检索增强顾问（带过滤标签）
      * @param vectorStore 向量存储
      * @param status 状态
      * @return 自定义的 RAG 检索增强顾问
