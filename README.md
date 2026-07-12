@@ -1,6 +1,6 @@
 # AI Agent 智能代理平台
 
-基于 **Spring Boot 3.5.10 + Java 17 + Vue 3** 的全栈 AI 智能代理平台。集成了阿里云百炼 DashScope 大模型，支持 ReAct 模式 Agent、RAG 知识库检索、多会话聊天记忆，以及多种工具调用。
+基于 **Spring Boot 3.5.10 + Java 17 + Vue 3** 的全栈 AI 智能代理平台。**对话模型使用 DeepSeek V4 Flash**，**向量模型使用阿里云百炼 DashScope（qwen-plus）**，支持 ReAct 模式 Agent、RAG 知识库检索、多会话聊天记忆，以及多种工具调用。
 
 ---
 
@@ -10,8 +10,8 @@
 |------|------|
 | 🤖 **AI 超级智能体** | ReAct 模式 Agent，支持多步推理和工具调用（文件操作、网页抓取、PDF 生成等） |
 | 💕 **AI 恋爱大师** | 基于 RAG 知识库的情感问答，支持流式对话和历史记录 |
-| 🧠 **多模型支持** | Spring AI + DashScope SDK + LangChain4J + HTTP 直连，四种调用方式 |
-| 📚 **RAG 知识库** | PostgreSQL + PGVector 向量存储，支持文档检索增强生成 |
+| 🧠 **双模型架构** | 对话使用 DeepSeek V4 Flash 【@Qualifier("openAiChatModel") ChatModel chatModel】，向量化使用千问 Qwen-Plus（DashScope）【ChatModel dashScopeChatModel】   |
+| 📚 **RAG 知识库** | PostgreSQL + PGVector 向量存储，支持文档检索增强生成 【@Qualifier("dashscopeEmbeddingModel") EmbeddingModel embeddingModel】 |
 | 💬 **聊天记忆** | MongoDB 持久化聊天记录，支持历史会话管理 |
 | 🔐 **登录鉴权** | JWT Token 认证，支持注册/登录/密码修改，注册含图片验证码校验 |
 | 🎨 **现代化 UI** | 浅色玻璃拟态风格，流式 Markdown 渲染，移动端自适应，密码显示/隐藏切换 |
@@ -26,8 +26,8 @@
 |------|------|------|
 | Java | 17 | 开发语言 |
 | Spring Boot | 3.5.10 | 应用框架 |
-| Spring AI | 1.0.0-M6 | AI 模型统一调用 |
-| DashScope SDK | 2.18.5 | 阿里云百炼 |
+| Spring AI | 1.0.0-M6 | AI 模型统一调用（OpenAI 兼容接口 + DashScope） |
+| DashScope SDK | 2.18.5 | 阿里云百炼（向量化模型） |
 | MongoDB | - | 聊天记忆存储 |
 | PostgreSQL + PGVector | - | 向量检索 |
 | JWT (jjwt) | 0.12.6 | 登录鉴权 |
