@@ -124,8 +124,15 @@
         :disabled="loading"
         @keydown.enter.exact.prevent="send"
       />
-      <button class="send-btn" :disabled="loading || !inputText.trim()" @click="send">
-        {{ loading ? '回复中...' : '发送' }}
+      <button class="send-btn" :class="{ 'stop-btn': loading }" :disabled="loading ? false : !inputText.trim()" @click="loading ? stopStream() : send()">
+        <template v-if="loading">
+          <svg viewBox="0 0 24 24" fill="none" class="btn-icon"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+          终止
+        </template>
+        <template v-else>
+          <svg viewBox="0 0 24 24" fill="none" class="btn-icon"><path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          发送
+        </template>
       </button>
     </div>
     </div>
@@ -161,6 +168,7 @@ const messages = ref([])
 const inputText = ref('')
 const loading = ref(false)
 const messagesRef = ref(null)
+const abortController = ref(null)
 
 // Sidebar state from App.vue
 const isSidebarOpen = inject('isSidebarOpen', ref(true))
@@ -342,6 +350,10 @@ function send() {
   messages.value.push({ role: 'assistant', content: '' })
   loading.value = true
 
+  // 创建 AbortController 用于终止请求
+  const controller = new AbortController()
+  abortController.value = controller
+
   streamLoveChat(text, chatId.value, {
     onChunk(chunk) {
       if (chunk) {
@@ -351,16 +363,28 @@ function send() {
     },
     onDone() {
       loading.value = false
+      abortController.value = null
       scrollToBottom()
       fetchHistoryList()
     },
     onError(err) {
-      messages.value[aiIndex].content = '回复失败：' + (err?.message || '网络错误')
       loading.value = false
+      abortController.value = null
+      if (err?.name === 'AbortError') return
+      messages.value[aiIndex].content = '回复失败：' + (err?.message || '网络错误')
       scrollToBottom()
       fetchHistoryList()
     },
-  })
+  }, controller.signal)
+}
+
+/** 终止 AI 回复 */
+function stopStream() {
+  if (abortController.value) {
+    abortController.value.abort()
+    abortController.value = null
+    loading.value = false
+  }
 }
 </script>
 
@@ -1141,6 +1165,23 @@ function send() {
   cursor: not-allowed;
   opacity: 0.7;
   box-shadow: none;
+}
+.send-btn.stop-btn {
+  background: #ef4444;
+  box-shadow: 0 4px 14px rgba(239,68,68,0.3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.send-btn.stop-btn:hover {
+  background: #dc2626;
+  box-shadow: 0 6px 24px rgba(239,68,68,0.4);
+  transform: translateY(-1px);
+}
+.btn-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 @media (max-width: 768px) {

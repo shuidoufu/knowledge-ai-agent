@@ -96,13 +96,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, inject, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { request } from '../api/request'
 import { setToken } from '../utils/auth'
 
 const router = useRouter()
 const route = useRoute()
+const showToast = inject('showToast', () => {})
+
 const username = ref('')
 const password = ref('')
 const confirmPassword = ref('')
@@ -117,6 +119,11 @@ const showPassword = ref(false)
 const showConfirmPwd = ref(false)
 
 onMounted(() => {
+  // 如果 URL 中有 msg 参数（如「请先登录后再访问该页面」），显示提示
+  if (route.query.msg) {
+    nextTick(() => showToast(route.query.msg, 'info'))
+  }
+  // 如果是被重定向到登录页（有 returnUrl），不清空演示账号
   if (route.query.returnUrl) return
   username.value = 'admin'
   password.value = 'admin'
@@ -196,10 +203,13 @@ async function submit() {
     }
     const { data } = await request.post(url, body)
     setToken(data.token, data.username)
+    showToast(isRegister.value ? '注册成功' : '登录成功', 'success')
     const returnUrl = route.query.returnUrl || '/'
-    await router.replace(returnUrl)
+    setTimeout(() => router.replace(returnUrl), 600)
   } catch (e) {
-    error.value = e.response?.data?.message || e.message || '操作失败，请重试'
+    const msg = e.response?.data?.message || e.message || '操作失败，请重试'
+    error.value = msg
+    showToast(msg, 'error')
     shaking.value = true
     await nextTick()
     setTimeout(() => { shaking.value = false }, 500)

@@ -134,7 +134,14 @@ public abstract class BaseAgent {
                     String result = "Step " + stepNumber + ": " + stepResult;
                     results.add(result);
                     // 输出当前每一步的结果到 SSE
-                    sseEmitter.send(result);
+                    try {
+                        sseEmitter.send(result);
+                    } catch (IOException e) {
+                        // 客户端断开连接，停止执行
+                        log.warn("Client disconnected, stopping agent at step {}/{}", stepNumber, maxSteps);
+                        state = AgentState.FINISHED;
+                        break;
+                    }
                 }
                 // 检查是否超出步骤限制
                 if (currentStep >= maxSteps) {

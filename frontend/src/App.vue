@@ -4,6 +4,25 @@
       <router-view />
     </main>
 
+    <!-- 全局 Toast 通知 -->
+    <Teleport to="body">
+      <div class="toast-container">
+        <TransitionGroup name="toast">
+          <div
+            v-for="t in toasts"
+            :key="t.id"
+            class="toast"
+            :class="'toast-' + t.type"
+          >
+            <svg v-if="t.type === 'success'" viewBox="0 0 24 24" fill="none" class="toast-icon"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg v-else-if="t.type === 'error'" viewBox="0 0 24 24" fill="none" class="toast-icon"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v4m0 4v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" class="toast-icon"><path d="M12 16v-4m0-4v.01M12 2a10 10 0 100 20 10 10 0 000-20z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span class="toast-text">{{ t.message }}</span>
+          </div>
+        </TransitionGroup>
+      </div>
+    </Teleport>
+
     <!-- 右上角品牌 Logo — 线形地球 -->
     <router-link to="/" class="brand-logo" title="AI Agent 智能代理平台">
       <svg viewBox="0 0 40 40" fill="none" class="brand-svg">
@@ -98,6 +117,32 @@ const isSidebarOpen = ref(true)
 provide('isSidebarOpen', isSidebarOpen)
 provide('setSidebarOpen', (val) => { isSidebarOpen.value = val })
 
+// ===== 全局 Toast 通知 =====
+const toasts = ref([])
+let toastId = 0
+function showToast(message, type = 'info', duration = 3000) {
+  const id = ++toastId
+  toasts.value.push({ id, message, type })
+  setTimeout(() => {
+    const idx = toasts.value.findIndex(t => t.id === id)
+    if (idx !== -1) toasts.value.splice(idx, 1)
+  }, duration)
+}
+provide('showToast', showToast)
+
+// ===== 启动时验证 token 有效性 =====
+onMounted(async () => {
+  if (isLoggedIn()) {
+    try {
+      await request.get('/auth/me')
+    } catch {
+      // token 无效或后端重启，清除登录状态
+      removeToken()
+      loggedIn.value = false
+    }
+  }
+})
+
 // 是否显示 dock（任务④：侧边栏折叠时隐藏，仅适用于 LoveChat 页面）
 const showDock = computed(() => {
   if (route.path === '/love') return isSidebarOpen.value
@@ -139,6 +184,7 @@ function logout() {
   removeToken()
   loggedIn.value = false
   closeDropdown()
+  showToast('已退出登录', 'info')
   router.push('/')
 }
 
@@ -498,9 +544,66 @@ html, body { overflow-x: hidden; }
     width: 38px;
     height: 38px;
   }
-  .brand-svg {
-    width: 26px;
-    height: 26px;
-  }
+	  .brand-svg {
+	    width: 26px;
+	    height: 26px;
+	  }
+	}
+
+/* ===== 全局 Toast 通知 ===== */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  pointer-events: auto;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.toast-success {
+  background: rgba(16,185,129,0.92);
+}
+.toast-error {
+  background: rgba(239,68,68,0.92);
+}
+.toast-info {
+  background: rgba(99,102,241,0.92);
+}
+.toast-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.toast-text {
+  white-space: nowrap;
+}
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+.toast-enter-from {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 </style>

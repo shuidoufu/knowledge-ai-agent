@@ -8,7 +8,7 @@
 
 | 功能 | 说明 |
 |------|------|
-| 🤖 **AI 超级智能体** | ReAct 模式 Agent，支持多步推理和工具调用（文件操作、网页抓取、PDF 生成等） |
+| 🤖 **AI 超级智能体** | ReAct 模式 Agent，支持多步推理和工具调用（文件操作、网页搜索、PDF 生成、资源下载等） |
 | 💕 **AI 恋爱大师** | 基于 RAG 知识库的情感问答，支持流式对话和历史记录 |
 | 🧠 **双模型架构** | 对话使用 DeepSeek V4 Flash 【@Qualifier("openAiChatModel") ChatModel chatModel】，向量化使用千问 Qwen-Plus（DashScope）【ChatModel dashScopeChatModel】   |
 | 📚 **RAG 知识库** | PostgreSQL + PGVector 向量存储，支持文档检索增强生成 【@Qualifier("dashscopeEmbeddingModel") EmbeddingModel embeddingModel】 |
@@ -31,7 +31,7 @@
 | MongoDB | - | 聊天记忆存储 |
 | PostgreSQL + PGVector | - | 向量检索 |
 | JWT (jjwt) | 0.12.6 | 登录鉴权 |
-| iText Core | 9.1.0 | PDF 生成 |
+| iText Core + font-asian | 9.1.0 | PDF 生成（嵌入微软雅黑中文字体） |
 | jsoup | 1.19.1 | 网页抓取 |
 | Hutool | 5.8.5 | Java 工具库 |
 | Knife4j | 4.4.0 | API 文档 |
@@ -114,7 +114,7 @@ ai-agent/
 │   ├── rag/               # RAG 检索增强（向量存储、文档加载、查询重写）
 │   ├── repository/        # 数据访问层
 │   ├── service/           # 业务逻辑（含 CaptchaService 验证码服务）
-│   └── tool/              # Agent 工具（文件操作、网页搜索、PDF 生成等）
+│   └── tool/              # Agent 工具（文件操作、PDF生成、百度联网搜索等）
 ├── frontend/
 │   └── src/
 │       ├── api/           # API 请求封装

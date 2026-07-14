@@ -5,6 +5,7 @@ import jakarta.annotation.Resource;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.ToolCallbacks;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,8 +15,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ToolRegistration {
 
-    // @Value("${search-api.api-key}")
-    // private String searchApiKey;
+    @Value("${baidu.api-key:}")
+    private String baiduApiKey;
 
     @Bean
     public ToolCallback[] allTools() {
@@ -24,12 +25,14 @@ public class ToolRegistration {
         WebScrapingTool webScrapingTool = new WebScrapingTool();
         ResourceDownloadTool resourceDownloadTool = new ResourceDownloadTool();
         PDFGenerationTool pdfGenerationTool = new PDFGenerationTool();
+        WebSearchTool webSearchTool = new WebSearchTool(baiduApiKey);
         TerminateTool terminateTool = new TerminateTool();
         return ToolCallbacks.from(
                 fileOperationTool,
                 webScrapingTool,
                 resourceDownloadTool,
                 pdfGenerationTool,
+                webSearchTool,
                 terminateTool
         );
     }

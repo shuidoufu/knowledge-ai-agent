@@ -45,7 +45,7 @@ router.beforeEach((to) => {
   }
   // 需要登录的页面：未登录则跳转登录页，并记录 returnUrl 便于登录后返回
   if (to.meta?.requiresAuth && !isLoggedIn()) {
-    return { path: '/login', query: { returnUrl: to.fullPath } }
+    return { path: '/login', query: { returnUrl: to.fullPath, msg: '请先登录后再访问该页面' } }
   }
 })
 
