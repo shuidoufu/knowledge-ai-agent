@@ -26,6 +26,7 @@ public class ToolRegistration {
         ResourceDownloadTool resourceDownloadTool = new ResourceDownloadTool();
         PDFGenerationTool pdfGenerationTool = new PDFGenerationTool();
         WebSearchTool webSearchTool = new WebSearchTool(baiduApiKey);
+        ImageSearchTool imageSearchTool = new ImageSearchTool();
         TerminateTool terminateTool = new TerminateTool();
         return ToolCallbacks.from(
                 fileOperationTool,
@@ -33,6 +34,7 @@ public class ToolRegistration {
                 resourceDownloadTool,
                 pdfGenerationTool,
                 webSearchTool,
+                imageSearchTool,
                 terminateTool
         );
     }

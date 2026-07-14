@@ -13,7 +13,9 @@
 | 🧠 **双模型架构** | 对话使用 DeepSeek V4 Flash 【@Qualifier("openAiChatModel") ChatModel chatModel】，向量化使用千问 Qwen-Plus（DashScope）【ChatModel dashScopeChatModel】   |
 | 📚 **RAG 知识库** | PostgreSQL + PGVector 向量存储，支持文档检索增强生成 【@Qualifier("dashscopeEmbeddingModel") EmbeddingModel embeddingModel】 |
 | 💬 **聊天记忆** | MongoDB 持久化聊天记录，支持历史会话管理 |
-| 🔐 **登录鉴权** | JWT Token 认证，支持注册/登录/密码修改，注册含图片验证码校验 |
+| 🖼 **图片搜索与展示** | 联网图片搜索，后端代理加载绕过防盗链，前端聊天内直接显示，无白边 |
+| 📄 **PDF 含图生成** | PDF 支持嵌入图片（Markdown 图片语法），多策略下载原图，统一缩放 |
+| 🔒 **登录鉴权** | JWT Token 认证，支持注册/登录/密码修改，注册含图片验证码校验 |
 | 🎨 **现代化 UI** | 浅色玻璃拟态风格，流式 Markdown 渲染，移动端自适应，密码显示/隐藏切换 |
 
 ---
@@ -114,7 +116,7 @@ ai-agent/
 │   ├── rag/               # RAG 检索增强（向量存储、文档加载、查询重写）
 │   ├── repository/        # 数据访问层
 │   ├── service/           # 业务逻辑（含 CaptchaService 验证码服务）
-│   └── tool/              # Agent 工具（文件操作、PDF生成、百度联网搜索等）
+│   └── tool/              # Agent 工具（文件操作、PDF生成、百度联网搜索、图片搜索等）
 ├── frontend/
 │   └── src/
 │       ├── api/           # API 请求封装
@@ -146,6 +148,35 @@ ai-agent/
 | PUT | `/api/ai/love_app/chat/history/{chatId}/title` | 更新会话标题 |
 | DELETE | `/api/ai/love_app/chat/history/{chatId}` | 删除会话 |
 | GET | `/api/ai/manus/chat` | 超级智能体对话 |
+| GET | `/api/files/**` | 静态文件服务（访问 `tmp/` 下的 PDF、图片等） |
+| GET | `/api/image-proxy?url=` | 图片代理下载（绕过防盗链） |
+
+### 🛠 Agent 工具列表
+
+| 工具 | 说明 |
+|------|------|
+| `searchWeb` | 联网搜索（百度 AppBuilder） |
+| `searchImages` | 联网图片搜索（Bing Images），返回原图 URL，无白边 |
+| `scrapeWebPage` | 网页内容抓取 |
+| `downloadResource` | 从 URL 下载资源到本地 |
+| `generatePDF` | 生成 PDF 文档，支持文字、标题、图片嵌入 |
+| `listPdfFiles` / `deletePdfFile` | PDF 文件管理 |
+| `FileOperationTool` | 文件读写、目录操作 |
+| `doTerminate` | Agent 任务结束信号 |
+
+### 🖼 图片处理流程
+
+```
+AI 搜索图片 → ImageSearchTool 获取原图 URL（murl）
+  ↓
+前端显示 → 后端 ImageProxyController 代理加载（绕过防盗链）
+  ↓
+PDF 生成 → 后端多策略下载（不同 Referer 重试），iText 嵌入
+```
+
+- 图片来源：Bing Image Search 原始来源 URL，**无 CDN 白边填充**
+- 防盗链：后端代理下载，携带浏览器完整请求头
+- 图片下载到 `tmp/download/`，PDF 生成后保留供后续使用
 
 ---
 

@@ -153,11 +153,21 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 图片预览弹窗 -->
+    <Teleport to="body">
+      <div v-if="previewImage.show" class="image-preview-overlay" @click.self="closePreview">
+        <button class="image-preview-close" @click="closePreview" title="关闭">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <img :src="previewImage.src" :alt="previewImage.alt" class="image-preview-img" @click.self="closePreview" />
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, inject } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, inject } from 'vue'
 import { streamLoveChat, request, updateChatTitle, deleteChat } from '../api/request'
 import { username as reactiveUsername } from '../utils/auth'
 import { marked } from 'marked'
@@ -173,6 +183,7 @@ const abortController = ref(null)
 // Sidebar state from App.vue
 const isSidebarOpen = inject('isSidebarOpen', ref(true))
 const setSidebarOpen = inject('setSidebarOpen', (v) => {})
+const showToast = inject('showToast', () => {})
 
 // History state
 const historyList = ref([])
@@ -182,6 +193,15 @@ const editingChatId = ref('')
 const editTitleText = ref('')
 // 删除确认状态
 const confirmDeleteChatId = ref('')
+
+// 图片预览状态
+const previewImage = ref({ show: false, src: '', alt: '' })
+function openPreview(src, alt) {
+  previewImage.value = { show: true, src, alt }
+}
+function closePreview() {
+  previewImage.value = { show: false, src: '', alt: '' }
+}
 
 // 当前会话标题
 const currentChatTitle = computed(() => {
@@ -308,9 +328,11 @@ async function doDeleteChat(deleteId) {
       createNewChat()
     }
     fetchHistoryList()
+    showToast('会话已删除', 'success')
   } catch (error) {
     console.error('Failed to delete chat:', error)
     confirmDeleteChatId.value = ''
+    showToast('删除失败，请重试', 'error')
   }
 }
 
@@ -321,17 +343,42 @@ onMounted(() => {
   if (window.innerWidth <= 768) {
     isSidebarOpen.value = false
   }
+
+  // 注册全局图片预览函数（供 Markdown 渲染的 img onclick 调用）
+  window.__previewImage = (src, alt) => {
+    openPreview(src, alt)
+  }
+  // ESC 键关闭预览
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && previewImage.value.show) {
+      closePreview()
+    }
+  })
 })
 
-/** AI 回复：渲染为安全的 Markdown HTML */
-function renderMarkdown(content) {
-  if (!content) return ''
-  const renderer = new marked.Renderer()
-  renderer.link = ({ href, title, text }) => `<a target="_blank" href="${href}" title="${title || ''}">${text}</a>`
-  renderer.heading = ({ depth, text }) => `<h${depth}>${text}</h${depth}>`
-  const rawHtml = marked.parse(content, { renderer, gfm: true })
-  return DOMPurify.sanitize(rawHtml)
-}
+onUnmounted(() => {
+  delete window.__previewImage
+})
+
+	/** AI 回复：渲染为安全的 Markdown HTML */
+	function renderMarkdown(content) {
+	  if (!content) return ''
+			  const renderer = new marked.Renderer()
+			  renderer.link = ({ href, title, text }) => `<a target="_blank" href="${href}" title="${title || ''}">${text}</a>`
+			  renderer.heading = ({ depth, text }) => `<h${depth}>${text}</h${depth}>`
+			  renderer.del = ({ text }) => text // 去掉删除线，只保留文字
+			  renderer.image = ({ href, title, text }) => {
+		    const escapedSrc = encodeURIComponent(href)
+		    const escapedAlt = text ? text.replace(/"/g, '&quot;') : ''
+		    // 通过后端代理加载图片，绕过防盗链
+		    return `<img src="/api/image-proxy?url=${escapedSrc}" alt="${escapedAlt}" class="chat-image" loading="lazy"`
+		      + ` style="width:100%;height:auto;display:block;border-radius:8px;margin:4px 0;"`
+		      + ` onclick="window.__previewImage && window.__previewImage(this.src, this.alt)"`
+		      + ` onerror="this.style.display='none'" />`
+		  }
+	  const rawHtml = marked.parse(content, { renderer, gfm: true })
+	  return DOMPurify.sanitize(rawHtml)
+	}
 
 function scrollToBottom() {
   nextTick(() => {
@@ -1213,5 +1260,53 @@ function stopStream() {
   .chat-id-display {
     display: none;
   }
+}
+
+
+/* 图片预览弹窗 */
+.image-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.2s ease;
+  cursor: zoom-out;
+}
+.image-preview-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  animation: modalSlideUp 0.25s ease;
+  cursor: default;
+}
+.image-preview-close {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  z-index: 2001;
+}
+.image-preview-close:hover {
+  background: rgba(255,255,255,0.25);
+}
+.image-preview-close svg {
+  width: 22px;
+  height: 22px;
 }
 </style>

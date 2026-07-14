@@ -2,32 +2,46 @@ package com.example.aiagent.tool;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpResponse;
 import com.example.aiagent.constant.FileConstant;
+import com.itextpdf.io.image.ImageData;
+import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.colors.ColorConstants;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.Image;
 import com.itextpdf.layout.element.Paragraph;
-import com.itextpdf.layout.element.Text;
 import com.itextpdf.layout.properties.TextAlignment;
+import com.itextpdf.layout.properties.UnitValue;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * PDF 文件生成工具
- * 为 AI Agent 提供 PDF 生成能力，支持多段落文本、标题、对齐方式等。
+ * 为 AI Agent 提供 PDF 生成能力，支持多段落文本、标题、对齐方式以及图片插入。
+ * 图片通过 Markdown 图片语法（![alt](url)）识别，支持网络 URL、本地路径和 Base64 编码。
  * 生成的 PDF 文件保存在 {user.dir}/tmp/pdf/ 目录下。
  * 使用 iText 7 引擎，支持中文字体渲染。
  */
@@ -36,6 +50,18 @@ public class PDFGenerationTool {
 
     /** PDF 文件保存根目录 */
     private static final String PDF_DIR = FileConstant.FILE_SAVE_DIR + "/pdf";
+
+    /** 临时目录，用于存放从网络下载的图片 */
+    private static final String TEMP_DIR = FileConstant.FILE_SAVE_DIR + "/download";
+
+    /** 匹配 Markdown 图片语法：![alt](src) */
+    private static final Pattern IMAGE_PATTERN = Pattern.compile("!\\[([^]]*)\\]\\(([^)]+)\\)");
+
+    /** PDF 页面可用宽度（A4 横向减去边距，约 500pt） */
+    private static final float PAGE_WIDTH_PT = 500f;
+
+    /** 图片在 PDF 中的最大高度（约 A4 高度的 60%） */
+    private static final float IMAGE_MAX_HEIGHT_PT = 400f;
 
     /** 中文字体列表：{字体标识, 编码}，统一使用 2-param createFont */
     private static final String[][] CHINESE_FONTS = {
@@ -60,22 +86,39 @@ public class PDFGenerationTool {
     }
 
     /**
+     * 安全解析临时文件路径
+     */
+    private String safeResolveTemp(String fileName) {
+        String normalized = Paths.get(TEMP_DIR, fileName).normalize().toString();
+        if (!normalized.startsWith(Paths.get(TEMP_DIR).normalize().toString())) {
+            throw new SecurityException("Path traversal is not allowed: " + fileName);
+        }
+        return normalized;
+    }
+
+    /**
      * 生成 PDF 文件
      * 将传入的文本内容生成为 PDF 文件。支持以下特性：
      * 
      *   - 多段落文本（按换行分隔）
-     *   - 标题行自动识别（# 开头的行）
+     *   - 标题行自动识别（# 和 ## 开头的行）
+     *   - 图片插入（Markdown 图片语法：![alt](url)）
+     *   - 图片支持网络 URL、本地路径和 Base64 编码
      *   - 中文字体渲染（自动回退）
      *   - 路径安全校验
      * 
+     * 图片使用示例：
+     *   ![风景图](https://example.com/landscape.jpg)
+     *   ![本地图片](/path/to/image.png)
+     * 
      * @param fileName 保存的文件名（建议以 .pdf 结尾）
-     * @param content  PDF 文本内容（多段文字用空行分隔）
+     * @param content  PDF 文本内容（多段文字用空行分隔，支持 Markdown 图片语法）
      * @return 操作结果提示
      */
-    @Tool(description = "Generate a PDF file with given content (supports Chinese text, multi-paragraph, # headings)")
+    @Tool(description = "Generate a PDF file with given content (supports Chinese text, multi-paragraph, # headings, and images via ![alt](url) syntax)")
     public String generatePDF(
             @ToolParam(description = "Name of the PDF file (e.g. report.pdf)") String fileName,
-            @ToolParam(description = "Content to be included in the PDF (use blank lines to separate paragraphs, # for headings)") String content) {
+            @ToolParam(description = "Content to be included in the PDF (use blank lines to separate paragraphs, # for headings, ![alt](url) for images)") String content) {
 
         // 参数校验
         if (StrUtil.isBlank(fileName)) {
@@ -90,11 +133,14 @@ public class PDFGenerationTool {
             fileName = fileName + ".pdf";
         }
 
+        List<String> tempFiles = new ArrayList<>();
+
         try {
             String filePath = safeResolve(fileName);
 
             // 确保目录存在
             FileUtil.mkdir(PDF_DIR);
+            FileUtil.mkdir(TEMP_DIR);
 
             // 创建 PDF 文档
             try (PdfWriter writer = new PdfWriter(filePath);
@@ -105,7 +151,7 @@ public class PDFGenerationTool {
                 PdfFont font = loadChineseFont();
                 document.setFont(font);
 
-                // 调试日志：输出 content 的前 100 个字符，检查是否已经乱码
+                // 调试日志：输出 content 的前 100 个字符
                 String preview = content.length() > 100 ? content.substring(0, 100) + "..." : content;
                 log.info("PDF content preview: {}", preview);
 
@@ -117,6 +163,18 @@ public class PDFGenerationTool {
                     if (trimmed.isEmpty()) {
                         // 空行 → 添加一个空段落作为间距
                         document.add(new Paragraph("\n").setFontSize(8));
+                        continue;
+                    }
+
+                    // 检查是否为图片行（整行只有图片语法）
+                    if (isImageOnlyLine(trimmed)) {
+                        addImageToDocument(document, trimmed, tempFiles);
+                        continue;
+                    }
+
+                    // 检查行中是否包含图片语法（文字和图片混合）
+                    if (containsImageSyntax(trimmed)) {
+                        processMixedContentLine(document, trimmed, font, tempFiles);
                         continue;
                     }
 
@@ -151,13 +209,342 @@ public class PDFGenerationTool {
                 }
             }
 
-            return "PDF generated successfully: " + fileName + " (size: " + formatFileSize(new File(filePath).length()) + ")";
+            // 清理 PDF 生成过程中下载的临时图片文件（仅删除下载的临时文件，不删 PDF）
+            for (String tempFile : tempFiles) {
+                try {
+                    FileUtil.del(tempFile);
+                } catch (Exception e) {
+                    log.warn("Failed to delete temp image file: {}", tempFile, e);
+                }
+            }
+
+            return "PDF generated successfully: " + fileName + " (size: " + formatFileSize(new File(filePath).length()) + ")"
+                    + "\nDownload URL: /api/files/pdf/" + fileName;
 
         } catch (SecurityException e) {
             return "Security error: " + e.getMessage();
         } catch (Exception e) {
             return "Error generating PDF: " + e.getMessage();
         }
+    }
+
+    /**
+     * 检查一行是否只包含图片语法
+     */
+    private boolean isImageOnlyLine(String line) {
+        Matcher matcher = IMAGE_PATTERN.matcher(line);
+        if (matcher.matches()) {
+            return true;
+        }
+        // 也支持行前后有少量空白或描述文字但实质只有一张图片
+        String stripped = line.replaceAll(IMAGE_PATTERN.pattern(), "").trim();
+        return stripped.isEmpty() && IMAGE_PATTERN.matcher(line).find();
+    }
+
+    /**
+     * 检查一行中是否包含图片语法
+     */
+    private boolean containsImageSyntax(String line) {
+        return IMAGE_PATTERN.matcher(line).find();
+    }
+
+    /**
+     * 处理纯图片行：将图片添加到文档
+     */
+    private void addImageToDocument(Document document, String line, List<String> tempFiles) {
+        Matcher matcher = IMAGE_PATTERN.matcher(line);
+        if (matcher.find()) {
+            String altText = matcher.group(1);
+            String src = matcher.group(2).trim();
+            Image image = loadImage(src, tempFiles);
+            if (image != null) {
+                if (StrUtil.isNotBlank(altText)) {
+                    // 添加图片标题
+                    document.add(new Paragraph(altText)
+                            .setFontSize(10)
+                            .setFontColor(ColorConstants.GRAY)
+                            .setTextAlignment(TextAlignment.CENTER)
+                            .setMarginBottom(2));
+                }
+                document.add(image);
+                // 图片后加间距
+                document.add(new Paragraph("\n").setFontSize(6));
+            }
+        }
+    }
+
+    /**
+     * 处理混合内容行（文字中嵌入图片，如 "文字 ![alt](src) 文字"）
+     * 按图片语法分割，分段渲染文字和图片
+     */
+    private void processMixedContentLine(Document document, String line, PdfFont font, List<String> tempFiles) {
+        Matcher matcher = IMAGE_PATTERN.matcher(line);
+        int lastEnd = 0;
+        boolean hasContent = false;
+
+        while (matcher.find()) {
+            // 图片前的文字
+            String before = line.substring(lastEnd, matcher.start()).trim();
+            if (StrUtil.isNotBlank(before)) {
+                document.add(new Paragraph(before).setFontSize(12).setMarginBottom(8));
+                hasContent = true;
+            }
+
+            // 图片
+            String src = matcher.group(2).trim();
+            Image image = loadImage(src, tempFiles);
+            if (image != null) {
+                document.add(image);
+                hasContent = true;
+            }
+
+            lastEnd = matcher.end();
+        }
+
+        // 图片后的剩余文字
+        String after = line.substring(lastEnd).trim();
+        if (StrUtil.isNotBlank(after)) {
+            document.add(new Paragraph(after).setFontSize(12).setMarginBottom(8));
+            hasContent = true;
+        }
+
+        if (!hasContent) {
+            // 兜底：没有任何内容被添加，把整行当普通文本
+            document.add(new Paragraph(line).setFontSize(12).setMarginBottom(8));
+        }
+    }
+
+    /**
+     * 加载图片，支持多种来源：
+     *   - http(s):// 网络 URL → 下载到临时文件
+     *   - data:image/... Base64 → 直接解码
+     *   - 本地文件路径 → 直接读取
+     * 
+     * @param src       图片来源
+     * @param tempFiles 临时文件列表（用于后续清理）
+     * @return iText Image 对象，加载失败返回 null
+     */
+    private Image loadImage(String src, List<String> tempFiles) {
+        try {
+            ImageData imageData = null;
+
+            if (src.startsWith("http://") || src.startsWith("https://")) {
+                // 网络 URL → 下载到临时文件
+                imageData = loadImageFromUrl(src, tempFiles);
+            } else if (src.startsWith("data:image/")) {
+                // Base64 编码图片 → 直接解码
+                imageData = loadImageFromBase64(src);
+            } else if (src.startsWith("/api/image-proxy?url=")) {
+                // 图片代理 URL → 提取原始 URL 后下载
+                String realUrl = src.substring("/api/image-proxy?url=".length());
+                // URL 可能经过编码，先做简单解码
+                realUrl = java.net.URLDecoder.decode(realUrl, java.nio.charset.StandardCharsets.UTF_8);
+                imageData = loadImageFromUrl(realUrl, tempFiles);
+            } else if (src.startsWith("/api/files/")) {
+                // 本地文件通过 HTTP 路径引用（如 /api/files/download/xxx）
+                // 解析为本地文件系统路径
+                String localPath = FileConstant.FILE_SAVE_DIR + src.substring("/api/files".length());
+                imageData = loadImageFromLocal(localPath);
+            } else {
+                // 本地文件路径 → 直接读取
+                imageData = loadImageFromLocal(src);
+            }
+
+            if (imageData == null) {
+                log.warn("Failed to load image from: {}", src);
+                return null;
+            }
+
+            Image image = new Image(imageData);
+
+            // 安全缩放：确保图片能放入页面，scaleToFit 等比缩放
+            image.scaleToFit(PAGE_WIDTH_PT - 20, 500f);
+
+            // 居中显示
+            image.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+            image.setMarginTop(6);
+            image.setMarginBottom(6);
+
+            return image;
+
+        } catch (Exception e) {
+            log.warn("Failed to load image: {} - {}", StrUtil.maxLength(src, 80), e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 从网络 URL 加载图片
+     * 使用 HuTool HttpRequest，可自定义请求头绕过防盗链。
+     * 自动多策略重试：先用 Bing Referer，再用无 Referer，最后用图片域名自身。
+     * 如果图片为 WEBP 格式，自动转换为 PNG 后交给 iText。
+     */
+    private ImageData loadImageFromUrl(String url, List<String> tempFiles) {
+        // 多策略下载：不同的 Referer 应对不同站点的防盗链
+        String[] referers = {
+                "https://www.bing.com/",
+                "",
+                extractDomain(url)
+        };
+
+        for (String referer : referers) {
+            ImageData result = tryDownload(url, referer, tempFiles);
+            if (result != null) return result;
+        }
+
+        // 全部失败，最后直连
+        log.warn("Failed to download image: {}", url);
+        try {
+            return ImageDataFactory.create(new URL(url));
+        } catch (Exception e) {
+            log.warn("Failed to read image directly: {}", url);
+            return null;
+        }
+    }
+
+    /**
+     * 用指定 Referer 尝试下载一张图片
+     */
+	    private ImageData tryDownload(String url, String referer, List<String> tempFiles) {
+	        String fileName = extractFileNameFromUrl(url);
+	        try {
+	            String tempFilePath = safeResolveTemp(fileName);
+
+            HttpRequest req = HttpRequest.get(url)
+                    .setFollowRedirects(true)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+                    .timeout(15000);
+            if (StrUtil.isNotBlank(referer)) {
+                req.header("Referer", referer);
+            }
+
+            byte[] bytes = req.execute().bodyBytes();
+            if (bytes == null || bytes.length == 0) return null;
+
+            String fmt = detectImageFormat(bytes);
+            if ("unknown".equals(fmt)) return null;
+
+            FileUtil.writeBytes(bytes, tempFilePath);
+            tempFiles.add(tempFilePath);
+
+            if ("webp".equals(fmt)) {
+                log.info("WEBP->PNG: {}", fileName);
+                byte[] png = convertWebpToPng(bytes);
+                if (png == null) return null;
+                String p = tempFilePath + ".png";
+                FileUtil.writeBytes(png, p);
+                tempFiles.add(p);
+                return ImageDataFactory.create(p);
+            }
+
+            log.info("Downloaded image: {} ({} bytes)", fileName, bytes.length);
+            return ImageDataFactory.create(tempFilePath);
+
+	        } catch (Exception e) {
+	            log.warn("tryDownload failed: {} - {}", fileName != null ? fileName : url, e.getMessage());
+	            return null;
+	        }
+    }
+
+    /**
+     * 从 URL 提取域名作为备选 Referer
+     */
+    private String extractDomain(String url) {
+        try {
+            java.net.URL u = new java.net.URL(url);
+            return u.getProtocol() + "://" + u.getHost() + "/";
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
+     * 检测图片格式（通过文件魔数）
+     */
+    private String detectImageFormat(byte[] header) {
+        if (header.length < 4) return "unknown";
+        // JPEG: FF D8 FF
+        if (header[0] == (byte) 0xFF && header[1] == (byte) 0xD8 && header[2] == (byte) 0xFF) return "jpeg";
+        // PNG: 89 50 4E 47
+        if (header[0] == (byte) 0x89 && header[1] == (byte) 0x50 && header[2] == (byte) 0x4E && header[3] == (byte) 0x47) return "png";
+        // GIF: 47 49 46 38
+        if (header[0] == (byte) 0x47 && header[1] == (byte) 0x49 && header[2] == (byte) 0x46 && header[3] == (byte) 0x38) return "gif";
+        // WEBP: 52 49 46 46 (RIFF...)
+        if (header[0] == (byte) 0x52 && header[1] == (byte) 0x49 && header[2] == (byte) 0x46 && header[3] == (byte) 0x46) return "webp";
+        // BMP: 42 4D
+        if (header[0] == (byte) 0x42 && header[1] == (byte) 0x4D) return "bmp";
+        return "unknown";
+    }
+
+    /**
+     * 将 WEBP 图片转换为 PNG（通过 ImageIO + TwelveMonkeys WebP 插件）
+     */
+    private byte[] convertWebpToPng(byte[] webpBytes) {
+        try {
+            BufferedImage image = ImageIO.read(new ByteArrayInputStream(webpBytes));
+            if (image == null) {
+                log.warn("ImageIO failed to decode WEBP bytes");
+                return null;
+            }
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(image, "PNG", baos);
+            return baos.toByteArray();
+        } catch (Exception e) {
+            log.warn("WEBP to PNG conversion failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 从 Base64 编码加载图片
+     */
+    private ImageData loadImageFromBase64(String dataUri) {
+        try {
+            // data:image/png;base64,AAAA...
+            int commaIndex = dataUri.indexOf(',');
+            if (commaIndex < 0) {
+                return null;
+            }
+            String base64 = dataUri.substring(commaIndex + 1).trim();
+            byte[] imageBytes = Base64.getDecoder().decode(base64);
+            return ImageDataFactory.create(imageBytes);
+        } catch (Exception e) {
+            log.warn("Failed to decode base64 image", e);
+            return null;
+        }
+    }
+
+    /**
+     * 从本地文件路径加载图片
+     */
+    private ImageData loadImageFromLocal(String filePath) {
+        try {
+            File file = new File(filePath);
+            if (!file.exists()) {
+                log.warn("Local image file not found: {}", filePath);
+                return null;
+            }
+            return ImageDataFactory.create(filePath);
+        } catch (Exception e) {
+            log.warn("Failed to load local image: {}", filePath, e);
+            return null;
+        }
+    }
+
+    /**
+     * 从 URL 中提取文件名
+     */
+    private String extractFileNameFromUrl(String url) {
+        // 去掉查询参数
+        String cleanUrl = url.contains("?") ? url.substring(0, url.indexOf('?')) : url;
+        // 取最后一段作为文件名
+        String fileName = cleanUrl.substring(cleanUrl.lastIndexOf('/') + 1);
+        if (StrUtil.isBlank(fileName) || !fileName.contains(".")) {
+            fileName = "img_" + System.currentTimeMillis() + ".jpg";
+        }
+        return fileName;
     }
 
     /**
@@ -233,30 +620,30 @@ public class PDFGenerationTool {
      * 按优先级尝试加载中文字体。优先使用 iText 内置 Asian 字体，
      * 不可用则尝试 Windows 系统字体路径。所有字体都失败时回退到内置字体。
      * @return 可用的 PdfFont 实例
-         */
-        private PdfFont loadChineseFont() {
-            for (String[] fontEntry : CHINESE_FONTS) {
-                String fontName = fontEntry[0];
-                String encoding = fontEntry[1];
-                try {
-                    PdfFont font = PdfFontFactory.createFont(fontName, encoding);
-                    log.info("PDF font loaded: {}", fontName);
-                    return font;
-                } catch (Exception e) {
-                    log.warn("PDF font load failed: {} - {}", fontName, e.getMessage());
-                }
-            }
-            log.error("ALL Chinese fonts failed! PDF will not display Chinese correctly.");
+     */
+    private PdfFont loadChineseFont() {
+        for (String[] fontEntry : CHINESE_FONTS) {
+            String fontName = fontEntry[0];
+            String encoding = fontEntry[1];
             try {
-                return PdfFontFactory.createFont();
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to load any PDF font", e);
+                PdfFont font = PdfFontFactory.createFont(fontName, encoding);
+                log.info("PDF font loaded: {}", fontName);
+                return font;
+            } catch (Exception e) {
+                log.warn("PDF font load failed: {} - {}", fontName, e.getMessage());
             }
         }
+        log.error("ALL Chinese fonts failed! PDF will not display Chinese correctly.");
+        try {
+            return PdfFontFactory.createFont();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load any PDF font", e);
+        }
+    }
 
-        /**
-         * 格式化文件大小
-         */
+    /**
+     * 格式化文件大小
+     */
     private String formatFileSize(long bytes) {
         if (bytes < 1024) return bytes + " B";
         if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
