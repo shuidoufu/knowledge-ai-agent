@@ -11,6 +11,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 基于MongoDB实现将会话内容存储到MongoDB中
@@ -40,6 +41,7 @@ public class ChatMessages {
         private String role;        // 角色：user, assistant, system
         private String content;     // 消息内容
         private Instant timestamp;  // 时间戳
+        private List<Map<String, Object>> references; // RAG 引用切片
 
         // Getters & Setters
         public String getRole() { return role; }
@@ -50,5 +52,8 @@ public class ChatMessages {
 
         public Instant getTimestamp() { return timestamp; }
         public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
+
+        public List<Map<String, Object>> getReferences() { return references; }
+        public void setReferences(List<Map<String, Object>> references) { this.references = references; }
     }
 }

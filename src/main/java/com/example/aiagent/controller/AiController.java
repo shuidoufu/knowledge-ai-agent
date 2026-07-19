@@ -183,12 +183,23 @@ public class AiController {
     }
 
     /**
-     * ============== 当前使用这个接口调用 ==============
+     * ============== 当前使用这个接口调用（无RAG） ==============
      * 纯文本流式聊天（无 SSE 包装，兼容换行符）
      */
     @GetMapping(value = "/love_app/chat/stream", produces = MediaType.TEXT_PLAIN_VALUE)
     public Flux<String> doChatWithLoveAppStream(String message, String chatId) {
         return loveApp.doChatByStream(message, chatId);
+    }
+
+    /**
+     * ============== 当前使用这个接口调用（RAG） ==============
+     * 带引用标注的 RAG 流式聊天
+     * AI 回复中使用 [1]、[2] 标注引用来源
+     * 流结束后追加JSON 格式的引用切片信息
+     */
+    @GetMapping(value = "/love_app/chat/rag/stream", produces = MediaType.TEXT_PLAIN_VALUE)
+    public Flux<String> doChatWithLoveAppRagStream(String message, String chatId) {
+        return loveApp.doChatByStreamWithRag(message, chatId);
     }
 
     /**

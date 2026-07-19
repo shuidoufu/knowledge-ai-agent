@@ -207,6 +207,7 @@
                     <source>17</source>
                     <target>17</target>
                     <compilerArgs>--enable-preview</compilerArgs>
+                    <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
             <plugin>
@@ -219,7 +220,7 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
-                    <jvmArguments>--enable-preview</jvmArguments>
+                    <jvmArguments>--enable-preview -Dfile.encoding=UTF-8</jvmArguments>
                 </configuration>
             </plugin>
         </plugins>

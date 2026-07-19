@@ -33,8 +33,9 @@ request.interceptors.response.use(
 /**
  * 纯文本流式聊天 - 恋爱大师
  * 使用 /chat/stream 端点，无 SSE 包装，兼容换行符
+ * 支持 AbortController 取消
  */
-export function streamLoveChat(message, chatId, { onChunk, onDone, onError }) {
+export function streamLoveChat(message, chatId, { onChunk, onDone, onError }, signal) {
   const url = new URL(BASE_URL + '/api/ai/love_app/chat/stream', window.location.origin)
   url.searchParams.set('message', message)
   url.searchParams.set('chatId', chatId)
@@ -43,7 +44,7 @@ export function streamLoveChat(message, chatId, { onChunk, onDone, onError }) {
   const token = getToken()
   if (token) headers.Authorization = 'Bearer ' + token
 
-  fetch(url.toString(), { method: 'GET', headers })
+  fetch(url.toString(), { method: 'GET', headers, signal })
     .then((res) => {
       if (res.status === 401) {
         removeToken()
@@ -63,17 +64,102 @@ export function streamLoveChat(message, chatId, { onChunk, onDone, onError }) {
           const raw = decoder.decode(value, { stream: true })
           if (raw) onChunk?.(raw)
           read()
-        }).catch(onError)
+        }).catch((err) => {
+          // AbortError 是主动取消，不触发 onError
+          if (err.name === 'AbortError') return
+          onError?.(err)
+        })
       }
       read()
     })
-    .catch(onError)
+    .catch((err) => {
+      if (err.name === 'AbortError') return
+      onError?.(err)
+    })
+}
+
+/**
+ * 带引用标注的 RAG 流式聊天
+ * 使用 /chat/rag/stream 端点
+ * 流结束后会收到 <!--RAG_REFS--> 标记 + JSON 引用数据
+ * onDone(refs) 回调会传入解析后的引用数组
+ */
+export function streamLoveChatRag(message, chatId, { onChunk, onDone, onError }, signal) {
+  const url = new URL(BASE_URL + '/api/ai/love_app/chat/rag/stream', window.location.origin)
+  url.searchParams.set('message', message)
+  url.searchParams.set('chatId', chatId)
+
+  const headers = {}
+  const token = getToken()
+  if (token) headers.Authorization = 'Bearer ' + token
+
+  let fullContent = ''
+
+  fetch(url.toString(), { method: 'GET', headers, signal })
+    .then((res) => {
+      if (res.status === 401) {
+        removeToken()
+        const returnUrl = encodeURIComponent(window.location.pathname + window.location.search || '/')
+        window.location.href = '/login?returnUrl=' + returnUrl
+        return
+      }
+      if (!res.ok) throw new Error(res.statusText)
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      function read() {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            // 流结束，解析引用数据
+            const refs = parseRagReferences(fullContent)
+            onDone?.(refs)
+            return
+          }
+          const raw = decoder.decode(value, { stream: true })
+          if (raw) {
+            fullContent += raw
+            onChunk?.(raw)
+          }
+          read()
+        }).catch((err) => {
+          if (err.name === 'AbortError') return
+          onError?.(err)
+        })
+      }
+      read()
+    })
+    .catch((err) => {
+      if (err.name === 'AbortError') return
+      onError?.(err)
+    })
+}
+
+/**
+ * 从完整内容中解析 RAG 引用数据
+ * 格式：文本内容...<!--RAG_REFS-->[{...}, {...}]
+ * 返回 { displayContent, references }
+ */
+function parseRagReferences(fullContent) {
+  const marker = '<!--RAG_REFS-->'
+  const idx = fullContent.indexOf(marker)
+  if (idx === -1) {
+    return { displayContent: fullContent, references: [] }
+  }
+  const displayContent = fullContent.substring(0, idx)
+  const jsonStr = fullContent.substring(idx + marker.length)
+  try {
+    const references = JSON.parse(jsonStr)
+    return { displayContent, references }
+  } catch (e) {
+    console.warn('解析 RAG 引用数据失败:', e)
+    return { displayContent: fullContent, references: [] }
+  }
 }
 
 /**
  * SSE 流式请求 - 超级智能体
+ * 支持 AbortController 取消
  */
-export function streamManusChat(message, { onChunk, onDone, onError }) {
+export function streamManusChat(message, { onChunk, onDone, onError }, signal) {
   const url = new URL(BASE_URL + '/api/ai/manus/chat', window.location.origin)
   url.searchParams.set('message', message)
 
@@ -81,7 +167,7 @@ export function streamManusChat(message, { onChunk, onDone, onError }) {
   const token = getToken()
   if (token) headers.Authorization = 'Bearer ' + token
 
-  fetch(url.toString(), { method: 'GET', headers })
+  fetch(url.toString(), { method: 'GET', headers, signal })
     .then((res) => {
       if (res.status === 401) {
         removeToken()
@@ -101,11 +187,17 @@ export function streamManusChat(message, { onChunk, onDone, onError }) {
           const raw = decoder.decode(value, { stream: true })
           if (raw) onChunk?.(raw)
           read()
-        }).catch(onError)
+        }).catch((err) => {
+          if (err.name === 'AbortError') return
+          onError?.(err)
+        })
       }
       read()
     })
-    .catch(onError)
+    .catch((err) => {
+      if (err.name === 'AbortError') return
+      onError?.(err)
+    })
 }
 
 /**

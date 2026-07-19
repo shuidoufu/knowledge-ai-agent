@@ -106,6 +106,27 @@
           <div v-else>
             <div v-if="loading && i === messages.length - 1" class="streaming-text">{{ msg.content }}</div>
             <div v-else v-html="renderMarkdown(msg.content)"></div>
+            <!-- RAG 引用切片展示 -->
+            <div v-if="msg.references && msg.references.length > 0" class="rag-references">
+              <div class="rag-refs-header">
+                <svg viewBox="0 0 24 24" fill="none" class="refs-icon"><path d="M4 6h16M4 12h10M4 18h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <span>知识库引用 ({{ msg.references.length }} 篇)</span>
+                <button class="refs-toggle" @click="msg._refsCollapsed = !msg._refsCollapsed">
+                  <svg viewBox="0 0 24 24" fill="none" class="toggle-icon" :class="{ rotated: !msg._refsCollapsed }"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+              <div v-if="!msg._refsCollapsed" class="rag-refs-list">
+                <div v-for="(ref, ri) in msg.references" :key="ri" class="rag-ref-item">
+                  <div class="rag-ref-index">[{{ ref.index }}]</div>
+                  <div class="rag-ref-body">
+                    <div class="rag-ref-content">{{ ref.content }}</div>
+                    <div v-if="ref.metadata && ref.metadata.filename" class="rag-ref-source">
+                      来源：{{ ref.metadata.filename }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -117,6 +138,15 @@
       </div>
     </div>
     <div class="input-area">
+      <div class="input-toolbar">
+        <label class="rag-toggle" title="开启后 AI 会从知识库检索相关内容回答问题" @click="ragEnabled = !ragEnabled">
+          <svg viewBox="0 0 24 24" fill="none" class="rag-toggle-icon"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span>知识库检索</span>
+          <div class="toggle-switch" :class="{ active: ragEnabled }">
+            <div class="toggle-knob"></div>
+          </div>
+        </label>
+      </div>
       <textarea
         v-model="inputText"
         placeholder="输入你的心事..."
@@ -168,7 +198,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted, inject } from 'vue'
-import { streamLoveChat, request, updateChatTitle, deleteChat } from '../api/request'
+import { streamLoveChat, streamLoveChatRag, request, updateChatTitle, deleteChat } from '../api/request'
 import { username as reactiveUsername } from '../utils/auth'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -179,6 +209,9 @@ const inputText = ref('')
 const loading = ref(false)
 const messagesRef = ref(null)
 const abortController = ref(null)
+
+// RAG 知识库搜索开关
+const ragEnabled = ref(true)
 
 // Sidebar state from App.vue
 const isSidebarOpen = inject('isSidebarOpen', ref(true))
@@ -247,7 +280,9 @@ async function loadHistoryChat(loadChatId) {
     chatId.value = loadChatId
     messages.value = res.data.map(m => ({
       role: m.role.toLowerCase(),
-      content: m.content
+      content: m.content,
+      references: m.references || [],
+      _refsCollapsed: true
     }))
     scrollToBottom()
   } catch (error) {
@@ -394,35 +429,67 @@ function send() {
   scrollToBottom()
 
   const aiIndex = messages.value.length
-  messages.value.push({ role: 'assistant', content: '' })
+  messages.value.push({ role: 'assistant', content: '', references: [] })
   loading.value = true
 
   // 创建 AbortController 用于终止请求
   const controller = new AbortController()
   abortController.value = controller
 
-  streamLoveChat(text, chatId.value, {
-    onChunk(chunk) {
-      if (chunk) {
-        messages.value[aiIndex].content += chunk
-      }
-      scrollToBottom()
-    },
-    onDone() {
-      loading.value = false
-      abortController.value = null
-      scrollToBottom()
-      fetchHistoryList()
-    },
-    onError(err) {
-      loading.value = false
-      abortController.value = null
-      if (err?.name === 'AbortError') return
-      messages.value[aiIndex].content = '回复失败：' + (err?.message || '网络错误')
-      scrollToBottom()
-      fetchHistoryList()
-    },
-  }, controller.signal)
+  // RAG 模式：使用带引用标注的流式接口
+  if (ragEnabled.value) {
+    streamLoveChatRag(text, chatId.value, {
+      onChunk(chunk) {
+        if (chunk) {
+          messages.value[aiIndex].content += chunk
+        }
+        scrollToBottom()
+      },
+      onDone(refs) {
+        if (refs) {
+          // 提取纯文本内容（去掉 <!--RAG_REFS--> 标记后的部分）
+          messages.value[aiIndex].content = refs.displayContent
+          messages.value[aiIndex].references = refs.references
+        }
+        loading.value = false
+        abortController.value = null
+        scrollToBottom()
+        fetchHistoryList()
+      },
+      onError(err) {
+        loading.value = false
+        abortController.value = null
+        if (err?.name === 'AbortError') return
+        messages.value[aiIndex].content = '回复失败：' + (err?.message || '网络错误')
+        scrollToBottom()
+        fetchHistoryList()
+      },
+    }, controller.signal)
+  } else {
+    // 普通模式：不使用 RAG
+    streamLoveChat(text, chatId.value, {
+      onChunk(chunk) {
+        if (chunk) {
+          messages.value[aiIndex].content += chunk
+        }
+        scrollToBottom()
+      },
+      onDone() {
+        loading.value = false
+        abortController.value = null
+        scrollToBottom()
+        fetchHistoryList()
+      },
+      onError(err) {
+        loading.value = false
+        abortController.value = null
+        if (err?.name === 'AbortError') return
+        messages.value[aiIndex].content = '回复失败：' + (err?.message || '网络错误')
+        scrollToBottom()
+        fetchHistoryList()
+      },
+    }, controller.signal)
+  }
 }
 
 /** 终止 AI 回复 */
@@ -1308,5 +1375,172 @@ function stopStream() {
 .image-preview-close svg {
   width: 22px;
   height: 22px;
+}
+
+/* ==================== RAG 切换开关 ==================== */
+.input-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 0 0 8px 0;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.rag-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.82rem;
+  color: #64748b;
+  padding: 4px 10px 4px 8px;
+  border-radius: 8px;
+  background: rgba(99,102,241,0.05);
+  border: 1px solid rgba(99,102,241,0.1);
+  transition: all 0.2s ease;
+}
+.rag-toggle:hover {
+  background: rgba(99,102,241,0.1);
+  border-color: rgba(99,102,241,0.2);
+}
+.rag-toggle-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #6366f1;
+}
+.toggle-switch {
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  position: relative;
+  transition: background 0.25s ease;
+  flex-shrink: 0;
+}
+.toggle-switch.active {
+  background: #6366f1;
+}
+.toggle-knob {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.toggle-switch.active .toggle-knob {
+  transform: translateX(14px);
+}
+
+/* ==================== RAG 引用切片展示 ==================== */
+.rag-references {
+  margin-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+}
+.rag-refs-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #6366f1;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.refs-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.refs-toggle {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+.refs-toggle:hover {
+  color: #6366f1;
+}
+.toggle-icon {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.25s ease;
+}
+.toggle-icon.rotated {
+  transform: rotate(180deg);
+}
+.rag-refs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rag-ref-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(99,102,241,0.04);
+  border: 1px solid rgba(99,102,241,0.1);
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+.rag-ref-item:hover {
+  background: rgba(99,102,241,0.08);
+}
+.rag-ref-index {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6366f1;
+  background: rgba(99,102,241,0.1);
+  border-radius: 6px;
+  padding: 2px 6px;
+  height: fit-content;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.rag-ref-body {
+  flex: 1;
+  min-width: 0;
+}
+.rag-ref-content {
+  font-size: 0.82rem;
+  color: #475569;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.rag-ref-source {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.rag-ref-source::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #cbd5e1;
+}
+
+/* 流式文本中引用标记样式 */
+.streaming-text :deep([rag-ref]) {
+  color: #6366f1;
+  font-weight: 600;
+  cursor: pointer;
 }
 </style>

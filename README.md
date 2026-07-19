@@ -9,13 +9,14 @@
 | 功能 | 说明 |
 |------|------|
 | 🤖 **AI 超级智能体** | ReAct 模式 Agent，支持多步推理和工具调用（文件操作、网页搜索、PDF 生成、资源下载等） |
-| 💕 **AI 恋爱大师** | 基于 RAG 知识库的情感问答，支持流式对话和历史记录 |
-| 🧠 **双模型架构** | 对话使用 DeepSeek V4 Flash 【@Qualifier("openAiChatModel") ChatModel chatModel】，向量化使用千问 Qwen-Plus（DashScope）【ChatModel dashScopeChatModel】   |
-| 📚 **RAG 知识库** | PostgreSQL + PGVector 向量存储，支持文档检索增强生成 【@Qualifier("dashscopeEmbeddingModel") EmbeddingModel embeddingModel】 |
-| 💬 **聊天记忆** | MongoDB 持久化聊天记录，支持历史会话管理 |
+| 💕 **AI 恋爱大师** | 基于 RAG 知识库的情感问答，支持流式对话、历史记录、引用标注和切片展示 |
+| 📚 **RAG 知识库 + 引用标注** | SimpleVectorStore 内存向量库，AI 回复标注来源编号 `[1]`、`[2]`，展开查看原文切片 |
+| 🔄 **引用持久化** | 引用数据随消息持久化到 MongoDB，刷新页面不丢失 |
+| 🧠 **双模型架构** | 对话使用 DeepSeek V4 Flash【@Qualifier("openAiChatModel") ChatModel chatModel】，向量化使用千问 Qwen-Plus（DashScope）【ChatModel dashScopeChatModel】 |
+| 💬 **聊天记忆** | MongoDB 持久化聊天记录，支持历史会话管理和知识库检索开关 |
 | 🖼 **图片搜索与展示** | 联网图片搜索，后端代理加载绕过防盗链，前端聊天内直接显示，无白边 |
 | 📄 **PDF 含图生成** | PDF 支持嵌入图片（Markdown 图片语法），多策略下载原图，统一缩放 |
-| 🔒 **登录鉴权** | JWT Token 认证，支持注册/登录/密码修改，注册含图片验证码校验 |
+| 🔒 **登录鉴权** | JWT Token 认证，支持注册/登录/密码修改，注册含图片验证码校验；启动时随机生成密钥，重启后旧 token 自动失效 |
 | 🎨 **现代化 UI** | 浅色玻璃拟态风格，流式 Markdown 渲染，移动端自适应，密码显示/隐藏切换 |
 
 ---
@@ -31,8 +32,7 @@
 | Spring AI | 1.0.0-M6 | AI 模型统一调用（OpenAI 兼容接口 + DashScope） |
 | DashScope SDK | 2.18.5 | 阿里云百炼（向量化模型） |
 | MongoDB | - | 聊天记忆存储 |
-| PostgreSQL + PGVector | - | 向量检索 |
-| JWT (jjwt) | 0.12.6 | 登录鉴权 |
+| JWT (jjwt) | 0.12.6 | 登录鉴权（启动时随机生成签名密钥） |
 | iText Core + font-asian | 9.1.0 | PDF 生成（嵌入微软雅黑中文字体） |
 | jsoup | 1.19.1 | 网页抓取 |
 | Hutool | 5.8.5 | Java 工具库 |
@@ -57,17 +57,21 @@
 - **Java 17+**（推荐使用 IntelliJ IDEA 自带的 JBR 17）
 - **Node.js 18+**
 - **MongoDB**（本地运行需安装）
-- **PostgreSQL + pgvector 插件**（可选，用于 RAG 功能）
 
 ### 1️⃣ 启动后端
 
 ```bash
+# 直接运行 start-backend.bat（推荐）
+start-backend.bat
+
+# 或手动执行
 set JAVA_HOME=<你的 Java 17 路径>
 cd ai-agent
-mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.jvmArguments="--enable-preview"
+mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.jvmArguments="--enable-preview -Dfile.encoding=UTF-8"
 ```
 
-> 项目使用了 Java 17 预览特性，运行时必须添加 `--enable-preview` 参数。
+> 项目使用了 Java 17 预览特性，运行时必须添加 `--enable-preview` 参数。  
+> `-Dfile.encoding=UTF-8` 确保中文编码正确。
 
 ### 2️⃣ 启动前端
 
@@ -104,29 +108,28 @@ npm run dev
 ```
 ai-agent/
 ├── src/main/java/com/example/aiagent/
-│   ├── advisor/           # Spring AI Advisor（日志、提示词优化）
+│   ├── advisor/           # Spring AI Advisor（日志、提示词优化、RAG 引用捕获）
 │   ├── agent/             # Agent 核心（BaseAgent → ReActAgent → ToolCallAgent → Manus）
-│   ├── app/               # 业务应用（LoveApp）
+│   ├── app/               # 业务应用（LoveApp，含 RAG 流式对话）
 │   ├── chatmemory/        # 聊天记忆（MongoDB / 文件）
 │   ├── config/            # 全局配置（CORS, JWT, MCP 后备）
 │   ├── controller/        # REST 接口
-│   ├── demo/invoke/       # AI 调用示例（4种方式）
 │   ├── filter/            # JWT 鉴权过滤器
-│   ├── model/             # 数据模型
+│   ├── model/             # 数据模型（含 RAG 引用标注字段）
 │   ├── rag/               # RAG 检索增强（向量存储、文档加载、查询重写）
 │   ├── repository/        # 数据访问层
-│   ├── service/           # 业务逻辑（含 CaptchaService 验证码服务）
+│   ├── service/           # 业务逻辑（含 AuthService、CaptchaService 验证码服务、UserService）
 │   └── tool/              # Agent 工具（文件操作、PDF生成、百度联网搜索、图片搜索等）
 ├── frontend/
 │   └── src/
-│       ├── api/           # API 请求封装
+│       ├── api/           # API 请求封装（含 RAG 流式接口）
 │       ├── router/        # 路由配置
 │       ├── utils/         # 工具函数
 │       └── views/         # 页面（登录、首页、恋爱大师、超级智能体）
 ├── src/main/resources/
 │   ├── application.yml    # 主配置（需自行填入 API Key）
 │   ├── prompt.yaml        # AI 系统提示词
-│   └── document/          # RAG 知识文档
+│   └── document/          # RAG 知识文档（Markdown 格式）
 └── pom.xml                # Maven 依赖
 ```
 
@@ -140,11 +143,12 @@ ai-agent/
 | POST | `/api/auth/register` | 注册（需图片验证码） |
 | POST | `/api/auth/change-password` | 修改密码 |
 | GET | `/api/auth/captcha` | 获取图片验证码 |
-| GET | `/api/ai/love_app/chat/sse` | 恋爱大师流式对话 |
 | GET | `/api/ai/love_app/chat/stream` | 恋爱大师纯文本流式对话 |
+| GET | `/api/ai/love_app/chat/rag/stream` | 恋爱大师 RAG 流式对话（含引用标注） |
+| GET | `/api/ai/love_app/chat/sse` | 恋爱大师 SSE 流式对话 |
 | GET | `/api/ai/love_app/chat/sync` | 恋爱大师同步对话 |
 | GET | `/api/ai/love_app/chat/history` | 历史会话列表 |
-| GET | `/api/ai/love_app/chat/history/{chatId}` | 历史会话详情 |
+| GET | `/api/ai/love_app/chat/history/{chatId}` | 历史会话详情（含引用数据） |
 | PUT | `/api/ai/love_app/chat/history/{chatId}/title` | 更新会话标题 |
 | DELETE | `/api/ai/love_app/chat/history/{chatId}` | 删除会话 |
 | GET | `/api/ai/manus/chat` | 超级智能体对话 |
@@ -163,6 +167,25 @@ ai-agent/
 | `listPdfFiles` / `deletePdfFile` | PDF 文件管理 |
 | `FileOperationTool` | 文件读写、目录操作 |
 | `doTerminate` | Agent 任务结束信号 |
+
+### 📖 RAG 引用标注流程
+
+```
+用户发送消息（知识库检索开关开启）
+  ↓
+GET /api/ai/love_app/chat/rag/stream
+  ↓
+后端：查询重写 → QuestionAnswerAdvisor（向量检索）
+  ├── DocCaptureAdvisor（捕获检索到的文档切片）
+  ├── 注入引用标注指令 → AI 用 [1]、[2] 标注来源
+  ├── 流式输出 AI 回复
+  └── 流结束后追加 <!--RAG_REFS--> + JSON 引用数据
+      ↓
+前端解析分隔符
+  ├── 提取引用数据 → 显示可折叠的引用卡片
+  ├── 纯文本内容 → Markdown 渲染
+  └── 引用持久化到 MongoDB（刷新页面不丢失）
+```
 
 ### 🖼 图片处理流程
 
@@ -183,8 +206,10 @@ PDF 生成 → 后端多策略下载（不同 Referer 重试），iText 嵌入
 ## 🧪 开发说明
 
 - **Java 预览特性**：编译和运行时均需 `--enable-preview`
+- **中文编码**：JVM 启动参数需添加 `-Dfile.encoding=UTF-8`，否则 Markdown 文档加载会出现中文乱码
+- **JWT 密钥**：每次启动随机生成，重启后旧 token 自动失效，无需重新登录配置
 - **MCP 客户端**：默认禁用，如需启用请配置 `mcp-servers.json`
-- **向量库**：PGVector 维度 1536，HNSW 索引，余弦距离
+- **向量库**：SimpleVectorStore（内存向量库），启动时从 `classpath:document/*.md` 加载知识文档
 - **前端 UI**：使用 `/ui-ux-pro-max` 技能获取设计规范
 
 ---

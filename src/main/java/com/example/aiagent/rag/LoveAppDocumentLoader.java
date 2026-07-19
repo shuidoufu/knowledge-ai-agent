@@ -12,6 +12,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 恋爱大师知识库文档加载器
+ * 加载 classpath:document/*.md 文件，使用 MarkdownDocumentReader 解析为文档切片
+ */
 @Slf4j
 @Component
 public class LoveAppDocumentLoader {
@@ -21,6 +25,10 @@ public class LoveAppDocumentLoader {
         this.resourcePatternResolver = resourcePatternResolver;
     }
 
+    /**
+     * 加载所有 Markdown 文档，按分割线切分为切片
+     * @return 文档切片列表
+     */
     public List<Document> loadMarkdowns() {
         List<Document> allDocuments = new ArrayList<>();
         try {

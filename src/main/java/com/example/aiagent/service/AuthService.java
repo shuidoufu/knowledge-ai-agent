@@ -8,7 +8,6 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 /**
@@ -26,7 +25,7 @@ public class AuthService {
 
     @PostConstruct
     public void init() {
-        this.secretKey = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
+        this.secretKey = Keys.hmacShaKeyFor(Jwts.SIG.HS256.key().build().getEncoded());
     }
 
     /**
