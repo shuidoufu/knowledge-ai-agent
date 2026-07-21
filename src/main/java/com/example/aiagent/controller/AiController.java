@@ -2,11 +2,13 @@ package com.example.aiagent.controller;
 
 import com.example.aiagent.agent.Manus;
 import com.example.aiagent.app.LoveApp;
+import com.example.aiagent.rag.YuqueDocumentSyncService;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -45,6 +47,9 @@ public class AiController {
 
     @Resource
     private AuthService authService;
+
+    @Resource
+    private YuqueDocumentSyncService yuqueDocumentSyncService;
 
     private String getUsernameFromRequest(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
@@ -200,6 +205,17 @@ public class AiController {
     @GetMapping(value = "/love_app/chat/rag/stream", produces = MediaType.TEXT_PLAIN_VALUE)
     public Flux<String> doChatWithLoveAppRagStream(String message, String chatId) {
         return loveApp.doChatByStreamWithRag(message, chatId);
+    }
+
+    /**
+     * 触发语雀文档同步
+     * 从语雀知识库拉取文档并写入 document/yuque-sync/ 目录
+     * @return 同步结果
+     */
+    @PostMapping("/love_app/yuque/sync")
+    public ResponseEntity<Map<String, Object>> syncYuque() {
+        int count = yuqueDocumentSyncService.syncDocuments();
+        return ResponseEntity.ok(Map.of("success", true, "syncedCount", count));
     }
 
     /**
