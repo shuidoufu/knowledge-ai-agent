@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Primary;
 import java.util.List;
 
 /**
- * 恋爱大师向量数据库配置(初始化基于内存的向量数据库Bean)
+ * 恋爱大师向量数据库配置(初始化基于 **本地内存** 的向量数据库Bean)
  */
 @Configuration
 public class LoveAppVectorStoreConfig {

@@ -11,6 +11,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import static org.springframework.ai.vectorstore.pgvector.PgVectorStore.PgDistanceType.COSINE_DISTANCE;
 import static org.springframework.ai.vectorstore.pgvector.PgVectorStore.PgIndexType.HNSW;
 
+/**
+ * 恋爱大师向量数据库配置(初始化 **PGVector** 向量数据库Bean)
+ */
 @Configuration
 public class PgVectorVectorStoreConfig {
 
@@ -25,9 +28,10 @@ public class PgVectorVectorStoreConfig {
                 .indexType(HNSW)
                 .initializeSchema(true)
                 .schemaName("public")
-                .vectorTableName("vector_store")
+                .vectorTableName("vector_store") // 引用 postgresql 中的知识库文档
                 .maxDocumentBatchSize(10000)
                 .build();
+        // vectorStore.add(loveAppDocumentLoader.loadMarkdowns()); // postgresql 中若无文档，可添加本地知识库文档
         return vectorStore;
     }
 }
