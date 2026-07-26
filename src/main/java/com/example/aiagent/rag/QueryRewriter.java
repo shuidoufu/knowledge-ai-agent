@@ -1,6 +1,7 @@
 package com.example.aiagent.rag;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Component;
 /**
  * 查询分析器：智能判断是否需要知识库检索，并对查询进行重写
  */
+@Slf4j
 @Component
 public class QueryRewriter {
 
@@ -26,26 +28,29 @@ public class QueryRewriter {
      */
     public QueryAnalysis analyze(String message) {
         String prompt = """
-                你是一个查询分析器。你的任务有两步：
+                判断以下用户问题是否需要搜索知识库来回答。
 
-                第一步：判断用户的问题是否需要搜索知识库。
-                需要搜索的场景：问题涉及具体知识、技术概念、用户笔记/收藏中的内容、
-                需要查阅资料才能回答的问题。
-                不需要搜索的场景：日常问候、闲聊、感谢、简单聊天、情感表达、
-                询问AI自身情况等无需查阅资料的对话。
+                需要搜索：涉及具体知识、技术概念、用户笔记/收藏、需要查阅资料的问题。
+                不需要搜索：日常问候、闲聊、感谢、情感表达、询问AI自身情况等。
 
-                第二步：如果需要搜索，将用户的问题改写成更适合向量检索的形式
-                （提取核心关键词、去除口语化表达）；如果不需要搜索，改写结果留空。
+                如果需要搜索，把问题改写为适合向量检索的形式（提取关键词、去除口语）。
+                如果不需要搜索，rewrittenQuery 填空字符串 ""。
 
-                请严格按以下JSON格式输出（不要包含markdown标记）：
-                {"needsRetrieval": true/false, "rewrittenQuery": "改写后的查询或空字符串"}
+                只输出纯 JSON，不要 markdown 代码块，不要多余文字：
+                {"needsRetrieval": true, "rewrittenQuery": "改写后的查询"}
+                （不需要搜索时输出：{"needsRetrieval": false, "rewrittenQuery": ""}）
 
                 用户问题：""" + message;
 
-        return chatClient.prompt()
-                .user(prompt)
-                .call()
-                .entity(QueryAnalysis.class);
+        try {
+            return chatClient.prompt()
+                    .user(prompt)
+                    .call()
+                    .entity(QueryAnalysis.class);
+        } catch (Exception e) {
+            log.warn("查询分析解析失败，默认走检索流程: {}", e.getMessage());
+            return new QueryAnalysis(true, message);
+        }
     }
 
     /**

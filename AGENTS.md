@@ -93,14 +93,24 @@ tool/        → Agent 工具（FileOperationTool）
 
 ### 配色体系（当前项目）
 ```
-主色     → #6366F1（Indigo）
-辅助色   → #818CF8
-CTA色    → #10B981（Emerald）
-背景色   → #F5F3FF
-文字色   → #1E1B4B
+主色     → #10B981（Emerald 翠绿）
+辅助色   → #34D399
+强调色   → #F59E0B（Amber 琥珀 — 高亮/知识引用标注）
+背景色   → #ECFDF5
+文字色   → #064E3B
 边框色   → rgba(255,255,255,0.3)
-阴影色   → rgba(99,102,241,0.08~0.15)
+阴影色   → rgba(16,185,129,0.06~0.15)
 ```
+
+### 图标库
+- 使用 `@lucide/vue` 作为图标库（替代手写内联 SVG）
+- 所有图标基于 24×24 viewBox、1.5px 描宽、圆角端点，视觉统一
+- 安装命令：`npm install @lucide/vue`
+
+### 排版字体
+- 标题/正文：`Plus Jakarta Sans`
+- 装饰标题：`Playfair Display`（衬线）
+- 诗意/书法文字：`Ma Shan Zheng`（马善政楷书）
 
 ### 生产安全检查清单
 - [ ] 修改默认演示账号 admin/admin

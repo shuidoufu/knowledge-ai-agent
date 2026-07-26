@@ -9,7 +9,7 @@
 | 功能 | 说明 |
 |------|------|
 | 🤖 **AI 超级智能体** | ReAct 模式 Agent，支持多步推理和工具调用（文件操作、网页搜索、PDF 生成、资源下载等） |
-| 💕 **AI 恋爱大师** | 基于 RAG 知识库的情感问答，支持流式对话、历史记录、引用标注和切片展示 |
+| 🧠 **个人知识助手** | 多源知识融合问答，基于 RAG 检索笔记与收藏，支持流式对话、引用标注和切片展示 |
 | 📚 **RAG 知识库 + 引用标注** | SimpleVectorStore 内存向量库，AI 回复标注来源编号 `[1]`、`[2]`，展开查看原文切片 |
 | 🔄 **引用持久化** | 引用数据随消息持久化到 MongoDB，刷新页面不丢失 |
 | 🧠 **双模型架构** | 对话使用 DeepSeek V4 Flash【@Qualifier("openAiChatModel") ChatModel chatModel】，向量化使用千问 Qwen-Plus（DashScope）【ChatModel dashScopeChatModel】 |
@@ -17,7 +17,7 @@
 | 🖼 **图片搜索与展示** | 联网图片搜索，后端代理加载绕过防盗链，前端聊天内直接显示，无白边 |
 | 📄 **PDF 含图生成** | PDF 支持嵌入图片（Markdown 图片语法），多策略下载原图，统一缩放 |
 | 🔒 **登录鉴权** | JWT Token 认证，支持注册/登录/密码修改，注册含图片验证码校验；启动时随机生成密钥，重启后旧 token 自动失效 |
-| 🎨 **现代化 UI** | 浅色玻璃拟态风格，流式 Markdown 渲染，移动端自适应，密码显示/隐藏切换 |
+| 🎨 **现代化 UI** | 翠绿主题玻璃拟态风格，Lucide 统一图标库，流式 Markdown 渲染，RAG 来源知识卡片，移动端自适应，密码显示/隐藏切换 |
 
 ---
 
@@ -46,6 +46,7 @@
 | Vite | 5.4.x | 构建工具 |
 | Vue Router | 4.4.x | 路由 |
 | Axios | 1.7.x | HTTP 请求 |
+| @lucide/vue | - | 图标库（Lucide SVG 图标集） |
 | marked + DOMPurify | - | Markdown 安全渲染 |
 
 ---
@@ -110,7 +111,7 @@ ai-agent/
 ├── src/main/java/com/example/aiagent/
 │   ├── advisor/           # Spring AI Advisor（日志、提示词优化、RAG 引用捕获）
 │   ├── agent/             # Agent 核心（BaseAgent → ReActAgent → ToolCallAgent → Manus）
-│   ├── app/               # 业务应用（LoveApp，含 RAG 流式对话）
+│   ├── app/               # 业务应用（KnowledgeApp，含 RAG 流式对话）
 │   ├── chatmemory/        # 聊天记忆（MongoDB / 文件）
 │   ├── config/            # 全局配置（CORS, JWT, MCP 后备）
 │   ├── controller/        # REST 接口
@@ -125,7 +126,7 @@ ai-agent/
 │       ├── api/           # API 请求封装（含 RAG 流式接口）
 │       ├── router/        # 路由配置
 │       ├── utils/         # 工具函数
-│       └── views/         # 页面（登录、首页、恋爱大师、超级智能体）
+│       └── views/         # 页面（登录、首页、个人知识助手、超级智能体）
 ├── src/main/resources/
 │   ├── application.yml    # 主配置（需自行填入 API Key）
 │   ├── prompt.yaml        # AI 系统提示词
@@ -143,14 +144,14 @@ ai-agent/
 | POST | `/api/auth/register` | 注册（需图片验证码） |
 | POST | `/api/auth/change-password` | 修改密码 |
 | GET | `/api/auth/captcha` | 获取图片验证码 |
-| GET | `/api/ai/love_app/chat/stream` | 恋爱大师纯文本流式对话 |
-| GET | `/api/ai/love_app/chat/rag/stream` | 恋爱大师 RAG 流式对话（含引用标注） |
-| GET | `/api/ai/love_app/chat/sse` | 恋爱大师 SSE 流式对话 |
-| GET | `/api/ai/love_app/chat/sync` | 恋爱大师同步对话 |
-| GET | `/api/ai/love_app/chat/history` | 历史会话列表 |
-| GET | `/api/ai/love_app/chat/history/{chatId}` | 历史会话详情（含引用数据） |
-| PUT | `/api/ai/love_app/chat/history/{chatId}/title` | 更新会话标题 |
-| DELETE | `/api/ai/love_app/chat/history/{chatId}` | 删除会话 |
+| GET | `/api/ai/knowledge/chat/stream` | 知识助手纯文本流式对话 |
+| GET | `/api/ai/knowledge/chat/rag/stream` | 知识助手 RAG 流式对话（含引用标注） |
+| GET | `/api/ai/knowledge/chat/sse` | 知识助手 SSE 流式对话 |
+| GET | `/api/ai/knowledge/chat/sync` | 知识助手同步对话 |
+| GET | `/api/ai/knowledge/chat/history` | 历史会话列表 |
+| GET | `/api/ai/knowledge/chat/history/{chatId}` | 历史会话详情（含引用数据） |
+| PUT | `/api/ai/knowledge/chat/history/{chatId}/title` | 更新会话标题 |
+| DELETE | `/api/ai/knowledge/chat/history/{chatId}` | 删除会话 |
 | GET | `/api/ai/manus/chat` | 超级智能体对话 |
 | GET | `/api/files/**` | 静态文件服务（访问 `tmp/` 下的 PDF、图片等） |
 | GET | `/api/image-proxy?url=` | 图片代理下载（绕过防盗链） |
@@ -173,7 +174,7 @@ ai-agent/
 ```
 用户发送消息（知识库检索开关开启）
   ↓
-GET /api/ai/love_app/chat/rag/stream
+GET /api/ai/knowledge/chat/rag/stream
   ↓
 后端：查询重写 → QuestionAnswerAdvisor（向量检索）
   ├── DocCaptureAdvisor（捕获检索到的文档切片）

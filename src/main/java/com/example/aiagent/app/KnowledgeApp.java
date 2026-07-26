@@ -130,6 +130,7 @@ public class KnowledgeApp {
 
         // 需要检索：使用改写后的查询进行 RAG 流式对话
         String rewriteMessage = analysis.rewrittenQuery();
+        // 若重写的内容为空，则为不需要重写，将用户原输入作为用户提示词
         if (rewriteMessage == null || rewriteMessage.isBlank()) {
             rewriteMessage = message;
         }
@@ -231,7 +232,7 @@ public class KnowledgeApp {
     // @Autowired
     // private VectorStore pgVectorVectorStore;
     public String doChatWithRag(String message, String chatId) {
-        // 查询分析（重写）
+        // 查询分析（重写），如果重写的内容为空，则为不需要重写，将用户原输入作为用户提示词
         QueryRewriter.QueryAnalysis analysis = queryRewriter.analyze(message);
         String rewriteMessage = (analysis.rewrittenQuery() != null && !analysis.rewrittenQuery().isBlank())
                 ? analysis.rewrittenQuery() : message;

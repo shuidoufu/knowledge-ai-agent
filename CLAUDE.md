@@ -22,7 +22,7 @@ description: AI Agent 项目的核心约束与架构指南。在为此项目生�
 ```
 advisor/     → Spring AI Advisor 横切逻辑（日志、提示词优化）
 agent/       → Agent 核心（BaseAgent → ReActAgent → ToolCallAgent → Manus）
-app/         → 业务应用（LoveApp）
+app/         → 业务应用（KnowledgeApp）
 chatmemory/  → 聊天记忆（MongoChatMemory / FileBasedChatMemory）
 config/      → 全局配置（CORS, JWT, Auth, McpFallbackConfig）
 controller/  → REST 控制器（仅做转发，不含业务逻辑）
@@ -55,7 +55,7 @@ tool/        → Agent 工具（FileOperationTool）
 - ✅ 必须使用 `<script setup>` + Composition API
 - ✅ 所有 API 调用通过 `src/api/request.js` 的 Axios 实例
 - ✅ 样式使用 `scoped`
-- ✅ 组件名大驼峰（`LoveChat.vue`）
+- ✅ 组件名大驼峰（`KnowledgeChat.vue`）
 - ✅ AI 的 Markdown 回复使用 `marked` + `DOMPurify` 渲染
 - ✅ 图标统一使用 SVG（禁止使用 emoji 作为 UI 图标 — ❌ `🗑️` `🚀` `⚙️`）
 

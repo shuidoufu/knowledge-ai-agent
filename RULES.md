@@ -32,7 +32,7 @@
 - **多模式 AI 调用**：Spring AI、原生 SDK、HTTP 直连、LangChain4J 四种方式
 - **Manus 风格 Agent**：ReAct 模式，支持工具调用（Tool Calling）
 - **RAG 知识库**：基于 PostgreSQL + PGVector 的向量检索增强生成
-- **恋爱助手（LoveApp）**：基于 RAG 的情感问答应用
+- **个人知识助手（KnowledgeApp）**：基于 RAG 的知识问答应用，整合笔记与收藏辅助回忆
 - **聊天记忆**：支持 MongoDB 持久化和文件两种存储方式
 - **JWT 登录鉴权**：前后端分离认证
 
@@ -77,7 +77,7 @@ ai-agent/
 ├── src/main/java/com/example/aiagent/
 │   ├── advisor/           # Spring AI Advisor（切面增强逻辑）
 │   ├── agent/             # Agent 核心实现（Manus, ReAct, ToolCall）
-│   ├── app/               # 业务应用层（如 LoveApp）
+│   ├── app/               # 业务应用层（如 KnowledgeApp）
 │   ├── chatmemory/        # 聊天记忆持久化实现
 │   ├── config/            # 全局配置类（CORS, JWT, Auth）
 │   ├── constant/          # 常量定义
@@ -244,7 +244,7 @@ const fetchData = async () => {
 ### Java
 | 类别 | 规范 | 示例 |
 |------|------|------|
-| 类名 | 大驼峰 | `UserService`, `LoveApp` |
+| 类名 | 大驼峰 | `UserService`, `KnowledgeApp` |
 | 方法名 | 小驼峰 | `findById()`, `processMessage()` |
 | 变量名 | 小驼峰 | `userName`, `chatHistory` |
 | 常量 | 全大写+下划线 | `MAX_RETRY_COUNT`, `DEFAULT_TIMEOUT` |
@@ -254,7 +254,7 @@ const fetchData = async () => {
 ### Vue / JavaScript
 | 类别 | 规范 | 示例 |
 |------|------|------|
-| 组件名 | 大驼峰 | `LoveChat.vue`, `ManusChat.vue` |
+| 组件名 | 大驼峰 | `KnowledgeChat.vue`, `ManusChat.vue` |
 | 变量 | 小驼峰 | `userInfo`, `chatMessages` |
 | 方法 | 小驼峰 | `fetchData()`, `handleSubmit()` |
 | 常量 | 全大写+下划线 | `API_BASE_URL` |
@@ -300,13 +300,13 @@ DELETE /api/xxx/{id}     删除
 POST   /api/ai/chat            对话接口（通用）
 POST   /api/ai/agent/chat      Agent 对话（Manus 模式）
 GET    /api/ai/history         获取聊天历史
-GET    /api/ai/love_app/chat/sse        恋爱大师 SSE 流式对话
-GET    /api/ai/love_app/chat/stream     恋爱大师纯文本流式对话（推荐，无 SSE 包装）
-GET    /api/ai/love_app/chat/sync       恋爱大师同步对话
-GET    /api/ai/love_app/chat/history    历史会话列表
-GET    /api/ai/love_app/chat/history/{chatId}  历史会话详情
-PUT    /api/ai/love_app/chat/history/{chatId}/title  更新会话标题
-DELETE /api/ai/love_app/chat/history/{chatId}        删除会话
+GET    /api/ai/knowledge/chat/sse        知识助手 SSE 流式对话
+GET    /api/ai/knowledge/chat/stream     知识助手纯文本流式对话（推荐，无 SSE 包装）
+GET    /api/ai/knowledge/chat/sync       知识助手同步对话
+GET    /api/ai/knowledge/chat/history    历史会话列表
+GET    /api/ai/knowledge/chat/history/{chatId}  历史会话详情
+PUT    /api/ai/knowledge/chat/history/{chatId}/title  更新会话标题
+DELETE /api/ai/knowledge/chat/history/{chatId}        删除会话
 ```
 
 > **SSE 流注意事项**：`/sse` 端点的 `data:` + `\n\n` 包装与 AI token 中的换行符冲突，
@@ -583,8 +583,8 @@ XxxControllerTest
 
 - 知识文档放在 `src/main/resources/document/` 下
 - 目前支持的格式：Markdown
-- 文档加载器在 `rag/LoveAppDocumentLoader.java` 中定义
-- 查询改写使用 `rag/QueryRewriter.java`
+- 文档加载器在 `rag/KnowledgeAppDocumentLoader.java` 中定义
+- 查询分析使用 `rag/QueryRewriter.java`（一次 LLM 调用同时完成"是否需要检索"判断 + 查询改写）
 - 向量存储配置在 `rag/` 包中的 Config 类
 
 ### 16.4 AI 调用方式选择
