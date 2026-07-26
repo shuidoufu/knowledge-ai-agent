@@ -18,6 +18,7 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -213,6 +214,8 @@ public class LoveApp {
      * @param chatId
      * @return
      */
+    // @Autowired
+    // private VectorStore pgVectorVectorStore;
     public String doChatWithRag(String message, String chatId) {
         // 查询重写
         String rewriteMessage = queryRewriter.doQueryRewrite(message);
@@ -223,10 +226,10 @@ public class LoveApp {
                 .user(rewriteMessage)
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                // 应用 RAG 知识库问答
-                // .advisors(new QuestionAnswerAdvisor(vectorStore))
-                // 应用 RAG 检索增强服务（基于 PGVector 向量存储）
+                // 应用 RAG 知识库问答（基于 本地内存 向量数据库）
                 // .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
+                // 应用 RAG 检索增强服务（基于 PGVector 向量存储）
+                // .advisors(new QuestionAnswerAdvisor(pgVectorVectorStore))
                 // 带有标签过滤的 RAG 增强服务
                 .advisors(
                         LoveAppRagCustomAdvisorFactory.createLoveAppRagCustomAdvisorFactory(

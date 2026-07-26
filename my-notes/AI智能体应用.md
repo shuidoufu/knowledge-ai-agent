@@ -1,0 +1,826 @@
+## OpenClaw 是什么？
+OpenClaw是一个开源的**多渠道Al网关**(Multi-channelAlGateway)，本身**<font style="color:#DF2A3F;">不进行大模型推理</font>**，而是作为中枢调度层，**<font style="color:#DF2A3F;">只负责调度和执行</font>**，<font style="color:#DF2A3F;">将LLM的推理能力翻译为对操作系统、API、硬件等的实际控制</font>。其本质是'AI的操作系统，强调模型无关、即插即用和生产就绪。
+
+
+
+核心运行机制 Agentic Loop，也是基于 ReAct 范式的**推理循环**：
+
+1. Load:加载会话历史、记忆文件、系统提示词
+2. Call:把上下文和工具列表一起发给LLM
+3. Parse:LLM 返回纯文本响应或结构化的tooluse 指令
+4. Execute:如果是tooluse，执行对应的工具，拿到结果
+5. Append:把执行结果追加到上下文里
+6. Loop:回到第2步，直到 LLM输出最终的文本响应
+
+这个循环就是OpenClaw区别于聊天机器人的根本。聊天机器人是一问一答，没有工具，没有循环。OpenClaw 能做到"搜网页→读内容→整理摘要→回复用户"这种多步骤任务，全靠这个循环在驱动。
+
+
+
+## 什么是大模型微调？与预训练的核心区别是什么？
+**大模型微调**是指**在预训练模型的基础上，使用特定任务的标注数据对模型进行****<u><font style="color:#DF2A3F;">再训练</font></u>**，使其适应具体应用场景的过程。通过微调，模型可以更好地完成如情感分析、问答系统等特定任务。
+
+
+
+`**核心区别**`：
+
+1. **目标不同**，预训练旨在学习通用语言表示，而微调旨在适应特定任务;
+2. **数据来源不同**，预训练使用大规模通用语料，微调使用特定任务的标注数据;
+3. **训练方式不同**，预训练通常采用无监督或自监督学习，微调则采用监督学习。
+
+
+
+## <font style="color:#DF2A3F;">什么是大模型 Agent？它与传统的 AI 系统有什么区别？</font>
+`**大模型Agent**`是基于大型语言模型的**<font style="color:#DF2A3F;">自主决策系统，具备模块化规划、记忆、工具调用等能力</font>**。它能根据目标将**<font style="color:#DF2A3F;">复杂任务拆解为子任务</font>**，主动调用外部工具(如API、数据库)，并通过内部循环优化执行过程，实现端到端的自动化，基本无需人工每步千预。
+
+`**传统 AI**`：一问一答式，被动响应，依赖固定的规则或者单任务模型，缺乏自主性和动态推理能力，只能用于回复用户的问题，**<font style="color:#DF2A3F;">无法去完成具体的任务，依赖上下文窗口且无持久状态</font>**。
+
+`**大模型 Agent 主要****<font style="background-color:#FBDE28;">组成部分</font>**`：**<font style="color:#DF2A3F;">大模型</font>****（Agent 核心）**、**<font style="color:#DF2A3F;">规划器(</font>**负责任务分解与路径设计)、**<font style="color:#DF2A3F;">执行器</font>**(执行具体操作)、**<font style="color:#DF2A3F;">记忆模块</font>**(存储短期和长期状态信息)、**<font style="color:#DF2A3F;">工具调用模块</font>**(与外部系统交互，如调用API或插件)。
+
+
+
+## <font style="color:#DF2A3F;">大模型幻觉问题</font>
+**概念**：大模型幻觉指的⁠是模型生成看似合理但实际上‌不准确或完全虚构的内容
+
+
+
+`**原因**`：
+
+1. 模型的训练数据中可能包含错误或过时的信息
+2. 大语言模型本质上是 预测下一个词的概率 模型，它们倾向于生成流畅而未必准确的内容。更重要的是，模型并不真正 “知道” 什么，它只是学会了文本的统计模式。
+
+
+
+`**<font style="color:#DF2A3F;">减少幻觉</font>**`：
+
+1. **使用 ****<font style="color:#DF2A3F;">RAG 检索增强生成</font>****，通过引入‌外部知识源**，我们可以让模型不再完全依赖其参数中存储的‎信息，而是基于检索到的最新‌、准确的信息来回答问题。
++ 有效的 RAG 实现通⁠常会引入 “**<font style="color:#DF2A3F;">引用标注</font>**” 机制，让模型明确指出‌信息**来源于哪个文档的哪个部分**。当模型不确定时，我们也**应该鼓励它诚实地表达不确定性**，而不是猜‎测答案。
+2. **提示词工程优化**，可以采用 “‌**<font style="color:#DF2A3F;">思维链</font>**”<font style="background-color:#FBDE28;">（引导模型思考，展示思考推理过程）</font> 提高推理透明度，通过**<u><font style="color:#DF2A3F;">引导模型一步步思考</font></u>**，我们能够更好地观察其推理过程‎，及时发现可能的错误；同时，如果遇到无法回答的问题，可以直接输出自己不知道答案或者提示转人工。
+3. 使用 **事实验证模型** 检查生成内容的准确性，**建立关键信息的自动核查机制**，或**实施人机协作的审核流程**。评估幻觉程度的指标包括事实一致性、引用准确性和自洽性评分。
+
+
+
+## <font style="color:#DF2A3F;">什么是 RAG？RAG 的主要流程是什么？</font>
+`**概念**`**： RAG(RetrievalAugmented Generation，检索增强生成)**是一种通过**<font style="color:#DF2A3F;">引入外部知识库来增强大语言模型生成能力的技术</font>**。它让大模型在回答问题时能够有所参考，即先从向量数据库中检索与问题相关的信息，再结合这些信息生成准确的回答，从而解决大模型知识滞后和缺乏私有数据的问题。
+
+
+
+`**核心流程**`：
+
+1. **索引阶段：**对<font style="color:#DF2A3F;">原始文档进行解析和分块</font>，并通过嵌入模型将文本向量化后存入向量数据库;
+2. **检索阶段：**<font style="color:#DF2A3F;">将用户查询向量化</font>，在向量数据库中进行语义相似度匹配，找出最相关的文本块;
+3. **生成阶段：**<font style="color:#DF2A3F;">将检索到的上下文与问题组合</font>，**作为提示工程 prompt** 输入大语言模型生成最终答案。
+
+
+
+`**RAG 局限性**`：
+
+1. 依赖检索质量，若检索不到相关内容会导致回答错误;
+2. 增加响应延迟，因需额外执行检索步骤;
+3. 可能引入噪声，如果**检索到不相关或冗余的内容会影响生成效果;**
+4. **需要维护高质量的外部知识库和向量索引**。
+
+
+
+**混合检索**：单一向量检索可能漏掉关键词匹配但**<font style="color:#DF2A3F;">语义相近</font>**的内容，而纯关键词检索无法理解**<font style="color:#DF2A3F;">同义表达</font>**；使用**<font style="color:#DF2A3F;">向量检索和关键词检索</font>**方式，兼顾<font style="color:#DF2A3F;">语义匹配和关键词</font>精确匹配，解决单一方法可能遗漏相关文档的问题，提升回答的全面性和准确性。
+
+<!-- 这是一张图片，ocr 内容为：RAG检索增强生成工作流程 建立索引 文档收集和切割 向量转换和存储 切片 1 自一圆 [0.1,0.3,.....5] EMBEDDING 切片2 [0.2,0.4,.....6] 向量 模型 [0.1,0.2,.....7] 数据库 切片3 文档切片 原始文档 向量存储 文档预处理 向量转换 向量表示 基于固定大小 基于语义边界 基于递归分割 检索生成 文档过滤和检索 查询增强和关联 增强提示词 (用户问题+文档切片) 用户问题 自自自 EMBEDDING RANK 模型 过滤条件 精排 模型 大模型 LLM 向量转换 条件搜索 TOPK 最相关 向量表示 最终回答 一相似度搜索 的文档切片 [0.1,0.5,.....7] 向量数据库 相关文档切片 编程导航 COCLSFATHER.CR -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1770631401250-dcb65704-463c-40d2-851d-26e5c0882233.png)
+
+
+
+## 什么是 Advanced RAG？
+Advanced RAG(高级检索增强生成)是传统RAG的升级版本，通过在**检索前（查询重写与****<u>扩展</u>****——****<font style="color:#DF2A3F;">补充关键字、扩大检索覆盖面</font>****、提高召回率，保持语义一致性）、检索中（混合检索、****<u>动态嵌入</u>****——根据用户上下文、对话历史、或应用场景****<font style="color:#DF2A3F;">调整嵌入模型的权重或表示方式</font>****，使检索更贴合当前欲求）和检索后（重排、上下文重构、内容过滤等）**三个阶段引入多种优化技术，提升检索的准确性与生成结果的质量。它解决了传统RAG中常见的问题，如**信息断裂、检索不精准、上下文冗余或不连贯**等。
+
+
+
+## 什么是 Modular RAG？
+ModularRAG(模块化检索增强生成)是一种将传统RAG系统拆分为多个松耦合、可重组功能模块的架构设计。这些模块包括**索引、检索前处理、检索、检索后处理和生成**等，每个模块独立负责特定任务，并由一个统一的:编排器'进行调度与路由，从而实现系统的灵活配置、可插拔替换和全流程优化。
+
+核心模块：
+
+1. Indexing (索引):优化文档分块并构建结构化知识存储
+2. Pre-Retrieval(检索前):进行查询转换与扩展，提升查询质量
+3. Retrieval(检索):采用**<font style="color:#DF2A3F;">混合检索</font>**方式从多种源中召回内容
+4. Post-Retrieval(检索后):对结果重排序和压缩，提高相关性
+5. Generation(生成):利用大模型生成答案并结合**<font style="color:#DF2A3F;">外部知识验证准确性</font>**。
+
+
+
+## 什么是查询扩展？
+ 查询扩展是指对用户**原始查询进行优化和补充（在文档检索之前）**，通过添**加同义词、相关术语、上位概念、下位场景或隐含意图**等信息，使查询更精准且覆盖更广，从而提升信息检索效果。例如将"减肥'扩展为'健康减肥方法饮食运动避免反弹'。<!-- 这是一张图片，ocr 内容为：查询扩展如何解决词汇不匹配问题? 加油条件的水箱可能与用二周围不同,请口用二部直射筒,但这部中使用的层COVD:33或有型面头前面,通过连刻厂两刻标准来酒,可以用连术语,可以调查工型用 力,提高检索召回率. -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773508727170-9f378f98-694f-4fbe-bebf-21ff24cde8c5.png)
+
+
+
+## 什么是 RAG 中的 Rerank（重排）？
+Rerank是RAG(检索增强生成)中的一个关键步骤，指在初步检索出候选文档后，使用**<font style="color:#DF2A3F;">更精细的模型对这些文档进行重新排序</font>**，以提升最终用于生成答案的上下文的相关性和质量。它通过**深度语义匹配**，从Top-K 候选中筛选出最贴合用户查询的前几篇文档。
+
+**工作原理**：Rerank模型会对每个(查询,文档)对<font style="color:#DF2A3F;">输出一个相关性分数</font>(如相似度得分)，然后按照分数从高到低对候选文档进行排序，取排名靠前的若干文档作为最终上下文输入给大模型生成答案。
+
+
+
+## RAG 应用中，为了优化检索精度，数据清洗和预处理怎么做？
+### 一、基础清洗：
+1. **文本标准化**（处理不同来源数据，如 PDF、HTML、EXCEL 等）
+    1. **编码统一：**转换为 UTF-8
+    2. **格式规范化**：统一中英文标点、全半角字符转换
+    3. **大小写策略**：<font style="color:rgba(0, 0, 0, 0.9);">根据场景选择（代码保留大小写，一般文本可小写）</font>
+    4. **去除噪声**：<font style="color:rgba(0, 0, 0, 0.9);">删除乱码、HTML 标签、特殊控制字符</font>
+2. **结构清洗**：处理 PDF/Word 转换后的常见问题，如去除页眉、页脚、页码、格式混乱、错误拆分段落
+
+### 二、内容质量层
+3. 语义去噪
++ **<font style="color:rgba(0, 0, 0, 0.9);">停用词处理</font>**<font style="color:rgba(0, 0, 0, 0.9);">：</font><u><font style="color:rgba(0, 0, 0, 0.9);">去除无意义词汇</font></u><font style="color:rgba(0, 0, 0, 0.9);">，但保留有业务价值的停用词（如产品型号中的"the")</font>
++ **<font style="color:rgba(0, 0, 0, 0.9);">低频/高频过滤</font>**<font style="color:rgba(0, 0, 0, 0.9);">：</font><u><font style="color:rgba(0, 0, 0, 0.9);">删除出现次数过少</font></u><font style="color:rgba(0, 0, 0, 0.9);">（可能是错误）或过多（可能是模板）的内容</font>
++ **<font style="color:rgba(0, 0, 0, 0.9);">重复检测</font>**<font style="color:rgba(0, 0, 0, 0.9);">：使用 SimHash/MinHash 识别近似重复文档</font>
+4. <font style="color:rgba(0, 0, 0, 0.9);">实体与术语规范化</font>
++ **<font style="color:rgba(0, 0, 0, 0.9);">统一实体表述</font>**<font style="color:rgba(0, 0, 0, 0.9);">：建立同义词表（如 "NLP" </font><font style="color:rgba(0, 0, 0, 0.9);">↔</font><font style="color:rgba(0, 0, 0, 0.9);"> "自然语言处理" </font><font style="color:rgba(0, 0, 0, 0.9);">↔</font><font style="color:rgba(0, 0, 0, 0.9);"> "Natural Language Processing"）</font>
++ **<font style="color:rgba(0, 0, 0, 0.9);">标准化日期/数字</font>**<font style="color:rgba(0, 0, 0, 0.9);">：统一格式便于后续检索</font>
++ **<font style="color:rgba(0, 0, 0, 0.9);">专业术语对齐</font>**<font style="color:rgba(0, 0, 0, 0.9);">：确保行业黑话、缩写的一致性</font>
+
+### 三、Chunking 策略（最关键）
+5. 智能分块：**<font style="color:#DF2A3F;">大模型有上下文长度限制</font>**(如GPT-4为8ktokens)，因此需将长文本切分为适中的语义单元(如300-500字)。**<font style="color:#DF2A3F;">合理分块可避免语义断裂，同时控制单块大小以适配模型输入窗口</font>**。通过按标题、段落优先切分，并设置块间重叠(如10%)，可保持上下文连贯性，提高检索相关性。
+
+| 策略 | 适用场景 | 注意事项 |
+| --- | --- | --- |
+| **固定长度** | 通用场景 | <font style="background-color:#FBDE28;">设置重叠窗口（overlap）避免语义截断</font> |
+| **语义分块** | 逻辑紧密的长文档 | 使用 NLTK/spaCy 按句子/段落分割 |
+| **结构分块** | 结构化文档（Markdown/HTML） | 按标题层级切分，保留层级关系 |
+| **递归分块** | 复杂嵌套文档 | 先按大段落，再按需细分 |
+
+
+6. 元数据增强：元数据标注(如时间、地点、关键词、部门)为**<font style="color:#DF2A3F;">知识块增加了结构化信息</font>**，支持在检索时进行条件过滤(如'只查2025年的政策文件)。这提升了检索的精准度和效率，尤其适用于大规模、多维度的知识库查询。
+
+```java
+{
+  "content": "...",
+  "metadata": {
+    "source": "产品手册_v2.3.pdf",
+    "page": 15,
+    "section": "3.2 安装步骤",
+    "doc_type": "技术文档",
+    "timestamp": "2024-01-15",
+    "parent_title": "第三章 部署指南"
+  }
+}
+```
+
+### 四、高级优化技术
+7. <font style="color:rgba(0, 0, 0, 0.9);">多粒度索引</font>
+8. <font style="color:rgba(0, 0, 0, 0.9);">向量化前处理</font>
+9. <font style="color:rgba(0, 0, 0, 0.9);">领域适配</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);"></font>
+
+## <font style="color:rgba(0, 0, 0, 0.9);">RAG 调优后效果评估？</font>
+RAG调优后的效果评估主要围绕三个维度:**检索质量、生成质量和系统性能**。
+
+`**检索质量**`关注**检索结果的准确性和全面性**;
+
+`**生成质量**`**（大模型自动打分和人工打分）**评估**回答的相关性**、基于上下文的程度和**是否存在幻觉**，
+
+`**系统性能**`则衡量**延迟、吞吐量和错误率**等非功能性指标。
+
+
+
+## 什么是提示压缩？为什么在 RAG 中需要提示压缩？
+提示压缩是指在RAG(检索增强生成)中，**<font style="color:#DF2A3F;">对</font>****<u><font style="color:#DF2A3F;">检索出的文档</font></u>****<font style="color:#DF2A3F;">内容进行精简处理</font>**，通过**提取核心信息、过滤无关文本、压缩冗长内容**，使输入大模型的提示既保留关键信息，又符合模型输入长度限制。例如将一篇10页的技术白皮书压缩为仅包含与问题相关的2个核心章节和关键数据。
+
+
+
+## 什么是自查询？为什么在 RAG 中需要自查询？（提取语义关键词和<font style="color:#DF2A3F;">元数据条件——过滤指定知识库文档</font>）
+自查询(Self-Query)是指**当用户输入模糊或隐含需求时**，RAG系统**通过模型自动解析出查询中的****<font style="color:#DF2A3F;">语义关键词</font>****和****<font style="color:#DF2A3F;">隐含的元数据条件</font>**(如作者、时间、标签等)，并生成结构化查询语句的过程。例如将'2025年鸭鸭的用户报告'拆解为语义匹配"用户报告"和元数据过滤"作者=鸭鸭，时间=2025’，从而实现更精准的检索。
+
+
+
+`**核心处理流程**`：自查询发生在用户输入到文档检索之间的意图解析阶段。系统首先判断是否需要自查询，若需要则由模型解析原始查询，**提取语义关键词和元数据条件，****<font style="color:#DF2A3F;">生成包含向量检索内容和过滤逻辑的结构化查询</font>**(如JSON格式)，再交由混合检索系统执行.
+
+
+
+自查询依赖：
+
+一是知识库中**<font style="color:#DF2A3F;">文档</font>**需具备**良好标注的元数据字段**(如作者、时间、标签);
+
+二是**系统需预定义可识别的元数据类型和格式**，以便LLM正确解析用户查询中的隐含条件,
+
+
+
+## 在 RAG 应用过程中，提示词工程设计有什么技巧？
+主要包括:
+
+1. **明确角色和任务：**
+2. **结构化提示：**结构化提示能清晰引导模型理解**输入结构和输出格式**。例如采用’[资料]:{{retrieved_documents}}[问题]:{{user_question}}[请用以下格式回答]:-回答:引用依据:‘的格式，提升输出一致性。
+3. **加上下文约束：**
+4. **模板化设计：**模板化设计便于将**检索到的内容动态填充到提示中**，支持批量处理和系统化部署，提高开发效率与维护性。
+5. **加入冗余兜底机制：**兜底机制(如'未找到相关资料')可应对检索失败的情况，避免模型强行生成错误答案，增强系统的鲁棒性和可信度。
+6. **提供示例来引导模型输出**：通过在提示中明确定义输出结构(如使用列表、固定字段等)，例如要求以'-回答:-引用依据:‘的形式输出，确保结果可解析且一致。
+
+
+
+## 什么是护栏技术？
+护栏技术是AI系统中用于**确保模型输出安全、合规、符合伦理的一系列防御性技术手段**，核心作用是防止AI生成有害、错误或违背人类价值观的内容。它通过**内容过滤、规则校验和应急处理**等机制，在AI运行时设置安全边界，确保其在预设规则内运作，避免失控。
+
+常见的**护栏技术**包括:
+
+1. **内容安全过滤**，利用NLP模型识别有害文本或图像
+2. **伦理规则引擎**，基于预设规则判断是否违规;
+3. **安全边界检查**，限制AI回答超出能力范围的问题
+4. **<font style="color:#DF2A3F;">对抗样本检测</font>**，防范恶意诱导输入
+5. **输出校准与应急处理**机制，如返回安全提示或触发人工审核。
+
+
+
+## 大模型结构化输出是什么？
+大模型的结构化输出是指让模型生成**符合特定格式(如JSON、XML、CSV、SQL、Markdown 等)的数据**，而不是自由文本。这种输出便于程序直接解析和处理，常用于<font style="color:#DF2A3F;">数据库写入、API调用、自动化流程</font>等场景，
+
+
+
+实现结构化输出：
+
+主要实现方法有三种:
+
+1. **提示工程**一一在输入中明确要求输出格式并提供示例
+2. **使用JSON Schema** 或平台提供的 response_format参数进行格式约束
+3. **后处理**——通过代码对模型输出进行解析、修复和验证。
+
+<!-- 这是一张图片，ocr 内容为：SPRING AI是如何实现结构化输出的? SOING (.通过 SOUTURDUTURONET 50103330NET  50MARRONDET 了0MARRONET 现口向接下面向接下面 ISON并提供SDENG),可导控型空空空空间间空;调用后,利用 CONVERTERTERT,]]遥控型项目的叉本(如 I50N 手行率)转预为目标识为目标识为目标识为目标准.如 BEAN,MAP 或LIST. -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773573631060-a9a74053-e441-49e8-a2fe-b117c5ff4d98.png)
+
+<!-- 这是一张图片，ocr 内容为：在 SPRING AI中使用 CHATCLIENT 进行结构化输出时,如何指定目标类型? 可以通过调用 DUDDEDT 的:GNUCEST RRBST 方法平脂证目领变型.解架全有预定有预防 SUUTCONDUTCON 到`MYCLASS的实例上. -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773573779218-f71ab403-e742-42f3-9af0-64477e6aafb1.png)
+
+
+
+## 如何快速搭建一个基于知识库的问答系统？
+使用 LangChain 内置的RetrievalQA 链或基于 Runnable 构建RAG 流程，仅需几行代码即可实现:
+
+1. 加载文档并使用嵌入模型(如 OpenAlEmbeddings)存入向量数据库(如 Chroma)
+2. 创建检索器(retriever)
+3. 定义提示词模板
+4. 组合成chain 并调用。例如通过`rag_chain.invoke(问题)即可从企业文档中检索并生成答案，非常适合搭建内部知识库问答机器人。
+
+
+
+## 什么是 LangGraph？
+LangGraph是LangChain生态中的一个基于图结构的开源框架，专门用于构建状态化、多代理协同的复杂Al应用。它将任务流程建模为有向无环图(DAG)，通过节点(如Agent、工具、函数)和边(数据流与控制流)来精确控制AI工作流的执行过程。
+
+
+
+`**核心特性**`：
+
+1. 可视化拖拽界面，便于非技术人员构建工作流
+2. 支持人工介入，在关键节点插入审批流程以降低风险
+3. 状态管理，实现上下文在节点间的持久传递
+4. 动态路径选择，根据条件自动调整执行流程
+5. 流式输出，实时展示模型生成内容以增强透明度和信任感。
+
+
+
+**LangGraph 和 LangChain 区别？**
+
+LangChain基于链式结构，**适合线性、顺序执行**的任务，如简单问答和文档处理;
+
+LangGraph基于图结构，支持循环、分支和动态决策，适用于**需要状态管理和复杂流程控制**的场景，如多智能体协作和人机协同。
+
+<!-- 这是一张图片，ocr 内容为：在什么情况下应该使用LANGCHAIN? 当任务流程简年,梦想国定自无高动态调整时,应使用LANGCTIN,包含量和;用于理同一控蒸知3年-LM1生风回省,这种方法注法程示范台用LUNGGHAN 来现 在什么情况下应该使用LANGGRAPH? 当任务涉及参为色的作,状态避免,条件利面过确环通过转忽杂度类明,应使用LUIGGTION,创和;资款系统中根取习题互来这自可赔五到不同代理,或数取分析 中质量不达标时自动回退清洗步骤. -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773157276939-5739497d-2651-4854-ae89-ec290d88788e.png)
+
+
+
+## <font style="color:#DF2A3F;">ReAct 是什么？说说它的原理？</font>
+ReAct(ReasoningandActing)是一种**<font style="color:#DF2A3F;">结合推理与行动的智能体框架</font>**，用于增强大语言模型解决复杂任务的能力。它通过让模型在生成回答时交替输出思考"和'行动'步骤，实现边思考边执行的闭环过程。
+
+
+
+`**<font style="color:#DF2A3F;">核心原理</font>**`：ReAct的核心原理包括四个步骤:
+
+1. **Thought(思考)**:模型分析当前问题并决定是否需要使用工具
+2. **Action(行动):**选择并调用合适的外部工具或APl
+3. **Observation(观察)**:接收工具返回的结果
+4. **循环迭代**:将观察结果作为新信息输入上下文，继续下一轮思考与行动，直到得出最终答案
+
+
+
+`**<font style="color:#DF2A3F;">ReAct 的优势</font>**`：
+
+1. 支持**动态获取外部信息**，提升准确性
+2. 能够在**<u><font style="color:#DF2A3F;">行动失败（调工具）</font></u>****后调整策略重试**
+3. **减少模型幻觉**
+4. **更接近人类解决问题的方式**一一边思考边行动
+
+
+
+**<font style="color:#DF2A3F;">ReAct 避免模型幻觉</font>**：ReAct 通过<font style="color:#DF2A3F;">引入外部工具的‘行动-观察'机制</font>，使模型能够<font style="color:#DF2A3F;">获取真实世界的数据</font>(如天气、时间、搜索结果等)，从而减<font style="color:#DF2A3F;">少依赖内部知识</font>进行猜测的情况，有效降低幻觉和错误推理的发生。
+
+<!-- 这是一张图片，ocr 内容为：请举一个 REACT的实际执行例子. 你的面向今天行行的天气和同;直充值观看有效于01天4A;请有福和天42TOR  NESTHARTOUSZHOUSTOUSTOR   专元;设有相型用 考后输出最终回答:'今天杭州多云,适合外出,但记得备伞.整个过程体现了,想一做一看一再想的循环机制. -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773157925265-84978ebb-a7fa-4c17-9e32-5ff54edc3e5a.png)
+
+
+
+`**<font style="color:#DF2A3F;">ReAct 具体实现</font>**`：
+
+<font style="color:rgba(0, 0, 0, 0.9);">"实现上主要分三层：</font>
+
+**<font style="color:rgba(0, 0, 0, 0.9);">第一层是 Prompt 工程</font>**<font style="color:rgba(0, 0, 0, 0.9);">——用 few-shot 示例强制模型输出结构化文本，格式是 </font>`<font style="color:rgba(0, 0, 0, 0.9);background-color:rgba(0, 0, 0, 0.03);">Thought: ... Action: ... Observation: ...</font>`<font style="color:rgba(0, 0, 0, 0.9);">。Thought 必须是自然语言推理，Action 必须是可解析的 JSON 或代码块。</font>
+
+**<font style="color:rgba(0, 0, 0, 0.9);">第二层是执行引擎</font>**<font style="color:rgba(0, 0, 0, 0.9);">——我通常会写一个 </font>`<font style="color:rgba(0, 0, 0, 0.9);background-color:rgba(0, 0, 0, 0.03);">ReActAgent</font>`<font style="color:rgba(0, 0, 0, 0.9);"> 类，维护消息历史，用正则或 JSON parser 提取 Action，调用对应工具函数，再把结果包装成 Observation 塞回上下文。</font>
+
+**<font style="color:rgba(0, 0, 0, 0.9);">第三层是控制逻辑</font>**<font style="color:rgba(0, 0, 0, 0.9);">——包括循环终止条件（遇到 Answer 或超 max_iterations）、防死循环检测（记录 action 历史，3 次重复就触发反思 prompt）、异常处理（工具失败时让模型自主调整策略而非直接报错）。"</font>
+
+
+
+## ReAct 和 RAG 区别（一个使用工具，一个使用静态文档）
+<!-- 这是一张图片，ocr 内容为：核心定义 (RETRIEVAL-AUGMENTED GENERATION,检索增强生成):通过从外部知识库检索 RAG 相关信息,并将其作为上下文注入LLM的生成过程,以提升回答的准确性与时效性 3 5. REACT(REASONING+ACTING,推理与行动):让LM在推理过程中动态调用外部工 具(如搜索引擎,计算器,API),通过"思考一行动-观察"的循环完成多步任务 3 . 主要区别 维度 RAG REACT 解决LLM 增强LLM 知识过时或领域覆盖不足 的逻辑推理与工具使用能 核心目的 的问题 力 动态外部工具(如API, 静态外部知识库 信息来源 搜索引擎 (如文档,数据库) 检索一拼接上下文一 思考行动观察 工作流程 生成答案 迭代一生成答案 多轮"思考-行动"循环 是否需要多轮交互 通常单轮检索生成 LANGCHAIN, 向量数据库 (如 -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1775144048962-2cfee4b8-d821-4a25-8316-b3b61c8e82a5.png)
+
+
+
+
+
+##  <font style="color:#DF2A3F;">CoT 和 ReAct 区别？</font>
+CoT（Chain of⁠ Thought）思维链是一种让 AI 像人类一‌样 “思考” 的技术，帮助 AI 在处理复杂问题时能够**<font style="color:#DF2A3F;">按步骤思考</font>**。对于复杂的推理类问题，先思考后‎执行，效果往往更好。而且还可以让模型在生成答案时‌展示推理过程，便于我们理解和优化 AI。
+
+Chain-of-Thought(CoT)仅支持线性推理，所有推导基于已有信息，<font style="color:#DF2A3F;">无法获取外部数据</font>;
+
+ReAct 在推理过程中可以<font style="color:#DF2A3F;">主动调用工具获取新信息</font>，支持动态修正思路，具备更强的问题解决能力，尤其适用于需要实时或外部信息的任务。
+
+**<font style="color:#DF2A3F;"> 总结</font>**：**CoT 思维链**是一种**<font style="color:#DF2A3F;">提示工程技术</font>**，引导模型生成中间推理过程，展示具体思考问题的步骤；可以让模型展示推理过程，便于优化和理解
+
+  ** ReAct****<font style="color:#DF2A3F;">（结合推理和行动的智能体框架）</font>**，可以处理复杂问题，不断去推理——行动——观察，最终解决问题，行动的时候可以调用工具。
+
+
+
+## 什么是短期记忆和长期记忆？
+<!-- 这是一张图片，ocr 内容为：超市记忆就是当前网络的上下文,所有的历史酒点,SYSTEM PROMPT,T月调用法军超过于用面,直接存在CONTEXT WINDOW里,UM每次推理新能有 到.就像你正在开会,桌上翘开的文件就是短期记忆,随时能看到,但桌子大小有限.生命周期等于一次会话,会话结束就设了, 长隔记亿品带会语连锁化的物口识.比如用户展好,通目上下文,过连的决策记录.就像行的方均:里面存了过去的工作已录,需要的时候去商,这些数 据存在外部存储里(向量数据库,文件系统等),需要的时候通过检索注入到CONTEXT里. 两者最根本的区别: 短期记忆精度高但容量有限,受CONTEXT WINDOW上限约束,塞满了就得做压缩或截断. 长期记忆容量几乎无限,但检索有损,搜出来的内容不一定完全匹配当前需要. -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773410480043-36ac270b-2a23-4211-a8bd-ac7a1169d069.png)
+
+
+
+## <font style="color:#DF2A3F;">在大模型应用中，如何实现长短期记忆？</font>
+大模型记忆机制分为两种：**短期记忆**靠上下文窗口，**长期记忆**靠外部存储（数据库）。
+
+1. `**短期记忆**`：短期记忆主要依赖模型的上下文窗口(如Claude支持100ktokens)，通过直接缓存最近的对话内容来维持上下文连贯性。常见实现方式包括：
+    1. **完整缓存整个对话历史**
+    2. 使用**滑动窗口保留最近N轮**对话
+    3. **按Token数量截断历史**(如仅保留最新的12k tokens)，以平衡性能与资源消耗。
+2. `**长期记忆**`：
+    1. **摘要压缩**，即对长时间对话生成摘要并分层存储(如每10轮对话压缩为一段)，结合短期缓存形成混合记忆机制
+    2. **检索增强生成(RAG)**，将历史信息嵌入向量数据库(如Milvus)，通过语义检索召回相关片段，突破模型上下文长度限制。
+
+
+
+**为什么大模型需要同时具备长短期记忆？**
+
+**短期记忆：**保障了当前**对话上下文的连贯性和响应准确性**，适合处理即时交互;
+
+**长期记忆：**使得模型能够**记住用户偏好、历史行为**等关键信息，**支持跨时间、跨会话的个性化服务**。两者结合可模拟人类记忆机制，提升用户体验和系统智能水平。
+
+
+
+## <font style="color:#DF2A3F;">什么是向量数据库？在基于大模型的应用开发中，向量数据库解决什么问题？</font>
+向量数据库是一种专门设计用于**<font style="color:#DF2A3F;">存储和管理</font>****<u><font style="color:#DF2A3F;">向量</font></u>****<font style="color:#DF2A3F;">（保留原始数据的语义或特征信息）</font>**嵌入(vector embeddings)的数据库系统。它能够将**非结构化数据**(如文本、图像、音频等)转换为高维向量形式进行存储，并**支持高效的相似性搜索**，尤其适用于**<font style="color:#DF2A3F;">语义</font>**层面的**<font style="color:#DF2A3F;">检索</font>**任务。
+
+
+
+`**解决问题**`：在基于大模型的应用开发中，向量数据库主要解决三个核心问题
+
+1. **<font style="color:#DF2A3F;">高效的相似性搜索</font>**，通过向量匹配实现语义相似内容的快速查找
+2. **<font style="color:#DF2A3F;">海量数据处理</font>**，能够高效管理大模型生成的百万甚至数十亿级向量数据
+3. **<font style="color:#DF2A3F;">实时交互支持</font>**，确保在聊天机器人等场景下快速检索上下文并提供低延迟响应。
+
+
+
+`**向量数据库的工作原理**`：首先将原始数据**<font style="color:#DF2A3F;">通过预训练模型转化为向量嵌入并存储</font>**;当用户发起查询时，**查询内容也被转换为向量**，然后在向量空间中**进行相似度计算**，通过**<font style="color:#DF2A3F;">近似最近邻算法</font>**快速找到最相似的向量并返回对应结果。
+
+
+
+`**应用场景**`：图像处理中**以图搜图**、基于用户行为向量的**内容推荐**、大模型增强应用中的上下文检索（相关需要相似度的场景）
+
+<!-- 这是一张图片，ocr 内容为：向量数据库与传统数据库的主要区别是什么? 世纪超市基于梅梅市部(和天镜河,0面部),两向通放现下班干燥又或有效于请勿有行驶行进行行驶证行驶证部项行部项目出方面向直邮部项目出方面向直邮部部部部 库可通过'红色水果'找到苹果图片,支持更灵活的语义搜索. -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773239947443-82fdde76-a50b-40b3-88c2-43b4de91a0c6.png)
+
+
+
+## <font style="color:#DF2A3F;">向量数据库的工作流程</font>
+向量数据库的工作流程主要包括五个步骤:**<font style="color:#DF2A3F;">数据处理、向量化、向量存储、索引构建和相似性检索</font>**。首先对原始数据进行清洗和预处理，然后通过AI模型将数据转化为高维向量，接着将这些向量以高效格式存储，并构建HNSW或LSH等索引结构，最后在查询时通过计算相似度(如余弦距离)快速返回Top-K近似结果,
+
+
+
+## 常见的向量数据库有哪些？
+常见的向量数据库包括**Milvus、Pinecone、Weaviate、Qdrant.Chroma、Faiss和Annoy**等。
+
+1. Milvus是开源且支持大规模分布式部署的国产数据库
+2. Pinecone是全托管服务，使用便捷但成本较高
+3. Weaviate支持多模态数据和语义搜索
+4. Qdrant支持向量与元数据联合查询
+5. Chroma轻量级，适合小规模项目快速验证
+6. Faiss和Annoy是高效相似性搜索库，适用于研究或高性能场景。
+
+<!-- 这是一张图片，ocr 内容为：常见的向量索引构建方法有哪些? 低存储和计算开销,LSH则通过哈希将相似向量映射到同一桶中以加快检索. 什么是近似最近邻(ANN)搜索?为什么使用它? IES超市(ANN),建设每一种在两项向直行同中经进驾驶与月向通型有限公司53005K可要四段长,已为年,配设连衣预项目者的行招理开,相对了预彻理系,ANV即 在大规模数据下实现毫秒级响应,适用于对实时性要求高的场景. HNSW索引是如何工作的? HN5W周过物连多而运转;低价效调东:两层桥段,用于快速人范围绕;低温进,用于滴面商现.提高时从顶层开始透写下降,最快速分换中的离而区那 径,逐步缩小范围,最终定位到最相似的向量. PQ(乘积量化) 如何优化向量存储和检索? PO将两种内面部分为多个于向面,并对每个子空同进行报来编码,用联类中心代有两的向置分段,从而大期五个的基表示,这项少了许接占相和国际计算复杂直 提升了检索效率. LSH(局部敏感哈希)在向量检索中起什么作用? ISH调对设计持转的街道路.这相门的到到的到道可能转送到同一个等中,直可可可以高在利应调内提东,大大海小了磁东返用,纽存了直商速度,得到适合承进合承进 向量的快速匹配. -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773239901794-a3976903-49d5-4af4-a46d-44aed64f55de.png)
+
+
+
+## 为什么向量数据库适合处理非结构化数据？
+因为非结构化数据（如视频、图片、音频）**<font style="color:#DF2A3F;">难以用字段描述</font>**，而向量数据库通过 AI 模型可以将这些数据**<font style="color:#DF2A3F;">转换为语义向量</font>**，**<font style="color:#DF2A3F;">提取</font>****<u><font style="color:#DF2A3F;">数据的特征</font></u>**进行相似度比较，从而实现高效的检索和推荐。（**检索向量返回的结果****<font style="color:#DF2A3F;">不是唯一</font>****的，是与查询的数据相似的若干个结果**）
+
+
+
+## 向量数据库中常见向量搜索方法区别？
+<!-- 这是一张图片，ocr 内容为：什么是余弦相似度? 金额相0度保证券提高个向整方向之间交通合转移,预备为,取自动:1.西部段行了,表示两个向通方向通方向前相近,通义或自转超相9:已不关口向望的长度,只 关注方向,常用于文本和推荐系统中. 什么是欧几里得距离? 欧几年得证券(欧旺和国),是两个向直在客连空同中的直住河通.计算方式为各练改造省平方和的平方和的平方电,双位大于存于0.距离基八表示内通过808.连同于西 像,视频等像素特征的直接比较. 什么是曼哈顿距离? 最短初型商法两个向望在各集度上空两组对调乙和,斐区于在城市网络中泊通路行走口路行长度,取街:0.已适台处理网省效起场的数理,如如四坐标,表位数据 等,对稀疏数据也有较好表现. -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773240026239-257cf97a-383d-462d-8c0f-741e4d50e14b.png)
+
+
+
+## <font style="color:#DF2A3F;">什么是 MCP 协议？</font>
+MCP(ModelContext Protocol，**模型上下文协议**)是由Anthropic于2024年11月25日提出的一种标准化通信协议，旨在为大型语言模型(LLMs)提供**统一接口**，使其能够**<font style="color:#DF2A3F;">动态连接和交互外部数据源、工具和服务</font>**，实现类似"即插即用"的功能。
+
+
+
+`**在 AI 大模型中作用**`：
+
+1. **标准化数据接入**，简化集成流程
+2. **增强模型能力**，支持实时访问最新数据和调用外部工具
+3. **提升系统可维护性**
+
+
+
+`**MCP 架构核心组件**`：MCP架构的核心组件包括:**MCP主机、MCP客户端、MCP服务器、本地数据源和远程服务**。
+
+1. **MCP主机：**是希望访问数据的应用程序，如IDE或AI工具;
+2. **<font style="background-color:#FBDE28;">❤</font>****<font style="background-color:#FBDE28;">MCP客户端</font>**：负责与MCP服务器建立1:1连接，并在LLM与服务器之间传递信息。它首先从MCPServer**<font style="color:#DF2A3F;">获取可用的工具列表</font>**，并将这些工具信息**<font style="color:#DF2A3F;">以FunctionCalling的形式传递给LLM</font>**。当 LLM决定调用某个工具时，**<font style="color:#DF2A3F;">MCPClient代表模型发起调用请求</font>**，执行完成后将结果返回给LLM，最终将模型生成的响应呈现给用户，完成整个闭环流程。 
+3. **MCP服务器：**通过标准化协议提供<u>资源、工具和提示</u>三类功能;
+4. **本地数据源：**指用户设备上的文件、数据库等，可被MCP服务器安全访问;
+5. **远程服务：**则是通过互联网连接的外部系统，如第三方API。
+
+<!-- 这是一张图片，ocr 内容为：MCP的工作流程包含哪些主要步骤? NCP CIONTHCR SENG SENG行工具:9)超甲型日与数点:工程保证干干和进行为存输出租产商:承接可能保证:9)请进行工具:9)超市 -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773244190455-6ff29f14-cbaf-47de-84bf-10fff116dd3a.png)
+
+
+
+## MCP 协议支持哪两种模式？
+1. 标准输入输出（stdio）：
++ Stdio模式适用于命令行工具开发、**<font style="color:#DF2A3F;">本地系统集成</font>**、简单的进程间通信以及shell脚本交互等场景，特别**适合MCP客户端与服务器在同一台机器上运行的情况**。
+2. 服务器发送事件（sse）：
++ **SSE模式基于HTTP协议**，支持服务器向客户端单向实时推送数据，**适用于****<font style="color:#DF2A3F;">远程部署</font>**、分布式系统或客户端与服务器不在同一设备上的场景，允许**多个客户端远程调用 MCP服务器**。
+
+
+
+## MCP 服务和 Function Calling 的区别是什么？
+**MCP**是一个抽象层面（系统架构层面）的**<font style="color:#DF2A3F;">协议标准</font>**，定义了上下文与请求的结构化传递方式，要求通信符合JSON-RPC2.0标准，提供标准化的通信机制。
+
+**FunctionCalling**是**<font style="color:#DF2A3F;">大模型(如GPT-4)提供的特定接口功能</font>**，允许模型根据上下文生成函数调用请求，属于模型层面的具体实现，不依赖统一协议。
+
+`**主要区别**`：**MCP** 统一了接口规范，使得在<font style="color:#DF2A3F;">支持 MCP 服务的大模型上都可以使用</font>，即插即用（一次开发，全平台使用），属于**<u>系统层面</u>**。而 **Function Calling** 是**<u>模型内部</u>**使用的，大模型在生成回复的时候，判断是否需要调用函数来解决问题，这种函数调用**<font style="color:#DF2A3F;">在不同大模型上兼容性存在差异（格式、接口不统一，放到其他模型上可能需要调整）</font>**。
+
+
+
+## 如何将已有的应用转换为 MCP 服务？
+1. 梳理需暴露的功能模块
+2. 创建独立的MCP服务并与原业务服务通信
+3. 根据语言导入相应MCP依赖
+4. 定义工具的输入输出规范
+5. 实现符合MCP协议的Server
+
+
+
+## LLM Agent 如何进行动态 API 调用？
+LLM Agent实现动态API调用的核心方式包括：
+
+1. `**<font style="color:#DF2A3F;">插件机制</font>**`，**<font style="color:#DF2A3F;">将API封装为工具并注册到平台</font>****(**如OpenAl Plugin或LangChain)，模型根据意图自动调用
+2. `**<font style="color:#DF2A3F;">动态函数调用</font>**`，**<font style="color:#DF2A3F;">通过定义函数接口</font>**(如GPT-4Turbo的function-calling)，**<font style="color:#DF2A3F;">模型输出结构化JSON触发后端执行API调用。</font>**
++ 动态函数调用通过预先定义可用函数的名称、参数格式和返回结构，让模型在生成响应时判断是否需要调用某个函数。若需调用，模型会输出符合该函数接口的JSON数据，由**<font style="color:#DF2A3F;">后端框架解析并执行实际的API请求</font>**，再将结果返回给模型进行后续推理。这相当于在模型与外部服务之间建立了一个‘转换桥'
+3. `**代码解释器**`，在安全沙箱中执行模型生成的代码片段以完成数据处理或第三方库调用。
+
+
+
+可以使用缓存来提升模型调用 API 的效率：可通过引入本地化高速缓存(如LLM-dCache)来提升效率。**该方法****<font style="color:#DF2A3F;">将频繁访问的API响应结果存储在本地缓存中</font>****，模型在发起调用前先查询缓存，若命中则直接使用历史结果，避免重复请求**，显著降低延迟和成本，特别适用于高频率、相似查询的场景。
+
+
+
+## 如何让 LLM Agent 具备长期记忆？
+使用 **RAG 和向量数据库**实现长期记忆：将**历史对话或知识文本切分并转换为embeddings存储到向量数据库**(如FAISS、ChromaDB)。当新查询到来时，通过语义检索找出最相关的历史内容，并将其拼接到当前输入上下文中，由LLM生成回应，从而实现对长期记忆的利用。
+
+
+
+## LLM Agent 在多模态任务中如何执行推理？
+在多模态中推理，核心是**<font style="color:#DF2A3F;">将多模态的数据统一转换成</font>****<u><font style="color:#DF2A3F;">向量表示</font></u>**，再将这些表示注入给大模型进行跨模态**融合和推理**。
+
+1. `**处理图像和文本输入推理（OCR）**`：使用视觉-语言模型，**<font style="color:#DF2A3F;">将图像编码转换为向量表示</font>**，并将这个**向量表示与文本输入****<font style="color:#DF2A3F;">对齐注入</font>**到大模型中，从而让模型进行融合推理。
+2. `**语音信息多模态推理（ASR）**`：使用 ASR（自动语音识别）模型**<font style="color:#DF2A3F;">将音频转换为文本</font>**，再将转录后的文本作为输入传递给大模型进行理解和相应。
+3. `**视频数据多模态处理（视频抽帧提取图像）**`：处理视频时，通常先进行**帧抽取**，选取关键帧并逐帧进行**图像编码**;同时可**结合音频转录文本信息**。所有模态数据按时间序列组织，通过LM的上下文记忆机制融合，实现时序化的多模态理解与推理，例如视频内容摘要或事件分析,（① 抽帧提取图像；② 图像转换向量 ；③ 音频转换为文字，三者结合交给大模型）
+
+
+
+`**<font style="color:#DF2A3F;">跨模态对齐</font>**`：将不同模态数据统一映射到语义空间中，使得他们可以相互匹配和交互，有助于提升模型准确理解**图文对应关系**，提升如**图像描述、视觉问答**等任务的表现。
+
+
+
+## 什么是查询重写？
+查询重写是 RAG预检索阶段的优化手段。它**<font style="color:#DF2A3F;">利用AI 大模型对用户原始输入的查询进行改写润色</font>**，然后生成一个对后续文档检索更有效、更精确的新查询。查询重写可以提高检索的准确性和相关性，尤其是当用户查询较为模糊、口语化、不完整，或者和知识库语言风格不一致时，通过重写可以将查询变得更规范、详细、更容易在向量数据库中匹配到最相关的文档。（**QueryTransformer 查询重写的方法，初始化时对查询重写的方法绑定一个大模型。然后将用户问题丢给 queryTansformer 进行查询重写**）
+
+```java
+/**
+ * 查询重写器
+ */
+@Component
+public class QueryRewriter {
+
+    private final QueryTransformer queryTransformer;
+
+	// 构造方法
+    public QueryRewriter(ChatModel dashScopeChatModel) {
+        ChatClient.Builder builder = ChatClient.builder(dashScopeChatModel);
+        queryTransformer = RewriteQueryTransformer.builder().chatClientBuilder(builder).build();
+    }
+
+    /**
+     * 执行查询重写
+     * @param prompt
+     * @return
+     */
+    public String doQueryRewrite(String prompt) {
+        Query query = new Query(prompt);
+
+        Query transformedQuery = queryTransformer.transform(query);
+
+        return transformedQuery.text();
+    }
+}
+```
+
+## 什么是工具调用 Tool Calling？如何用 SpringAI 实现
+工具调用(ToolCalling)，也称为函数调用(FunctionCalling)，是Al大模型在对话过程中根**据需要请求执行外部工具来完成特定任务的机制**。当模型自身无法获取实时数据(如天气、数据库信息等)时，它可以识别出所需操作，并生成一个包含工具名称和参数的请求。该请求**<font style="color:#DF2A3F;">由应用程序接收并实际执行对应工具</font>**，执行结果返回给模型后，模型再据此生成最终回复。关键点是:真正执行工具的是应用程序，而非Al服务器本身。
+
+
+
+`**SpringAI实现工具调用**`：SpringAI通过注解和自动装配机制极大简化了工具调用的实现。开发者只需使用**<font style="color:#DF2A3F;">@Tool</font>**注解标记可被调用的方法，并可用**<font style="color:#DF2A3F;">@ToolParam描述参数</font>**，**框架会自动将这些方法暴露给Al模型**。在构建ChatClient时**<font style="color:#DF2A3F;">注册工具（ToolCallback）</font>**，SpringAl会在运行时自动处理模型返回的工具调用请求，包括解析、匹配、执行Java方法、结果回传等流程，无需手动干预。
+
+
+
+`**SpringAI 注册工具**`：
+
+1. **按需使用**:在每次调用ChatClient 时通过**.tools()**方法传入工具实例
+2. **全局使用**:在构建ChatClient 时通过**defaultTools()**设置默认工具，适用于所有请求
+3. **<font style="color:#DF2A3F;">集中注册</font>**:在配置类中使用@Bean将多个工具实例通过ToolCallbacks.from()统一注册为**<font style="color:#DF2A3F;">ToolCallback[]数组</font>**,
+
+便于依赖注入和管理。
+
+
+
+`**<font style="color:#DF2A3F;">工具调用完整执行流程</font>**`：
+
+工具调用的完整流程如下:
+
+1. 用户发起对话请求
+2. AI 模型判断需要调用工具，返回一个**<font style="color:#DF2A3F;">结构化的</font>****<u><font style="color:#DF2A3F;">工具调用请求</font></u>****<font style="color:#DF2A3F;">(含</font>****<u><font style="color:#DF2A3F;">工具名和参数</font></u>****<font style="color:#DF2A3F;">)</font>**;
+3. **SpringAI框架解析该请求，查找并****<font style="color:#DF2A3F;">匹配对应的@Tool标记</font>****方法**;
+4. 框架执行该Java方法并将结果序列化;
+5. 执行结果被发送回AI模型;
+6. AI模型结合结果生成自然语言响应并返回给用户。整个过程对开发者透明，仅需定义好工具逻辑。
+
+
+
+## 如何进行 AI 应用层的测试和效果评估？
+┌─────────────────────────────────────────────────────────┐
+
+│                    AI 应用评估金字塔                      │
+
+├─────────────────────────────────────────────────────────┤
+
+│  第一层：模型层（Model Eval）                              │
+
+│     → 基础能力：推理、知识、代码、多模态                     │
+
+├─────────────────────────────────────────────────────────┤
+
+│  第二层：系统层（System Eval）                             │
+
+│     → 端到端：RAG、Agent、工具调用、工作流                   │
+
+├─────────────────────────────────────────────────────────┤
+
+│  第三层：产品层（Product Eval）                            │
+
+│     → 用户体验：满意度、留存率、业务指标                      │
+
+├─────────────────────────────────────────────────────────┤
+
+│  第四层：运营层（Operational Eval）                        │
+
+│     → 成本、延迟、吞吐量、稳定性                            │
+
+└─────────────────────────────────────────────────────────┘
+
+<!-- 这是一张图片，ocr 内容为：第一层:模型层评估 (选底座模型) 基准测试(BENCHMARKS) CSDN博客 表格 测试维度 代表基准 考察能力 综合知识 MMLU-PRO.HLE 多学科专业知识 推理能力 数学,科学推理 GPQA DIAMOND, AIME 2025 编程,算法实现 代码生成 LIVECODEBENCH, SCICODE 指令遵循 复杂指令理解 IFBENCH,AA-LCR 长上下文 长文本记忆与检索 LONG-CONTEXT RECALL -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773502741000-6f693292-6f2f-497d-be17-d0eff4684c63.png)
+
+<!-- 这是一张图片，ocr 内容为：(核心) 第二层:系统层评估 这是AI应用最关键的评估层,测试完整的PROMPT+RAGENT 链路 CODECADEMY 系统评估指标 2.1RAG系 COMET ML 表格 指标 定义 评估对象 检索模块 检索到的文档中有多少是相关的 CONTEXT PRECISION 相关文档被检索到的比例 检索模块 CONTEXT RECALL 生成模块 生成内容是否忠实于检索文档 FAITHFULNESS 答案与问题的相关程度 生成模块 ANSWER RELEVANCY -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773502748480-4718fb87-6280-43e4-b4f6-000a0fba3b35.png)
+
+<!-- 这是一张图片，ocr 内容为：第三层:产品层评估(用户体验) 人工评估方法 COMET ML 表格 适用场景 方法 实施要点 主观质量打分 1-5分,明确评分标准(如5完全解决用户问题) LIKERT量表 盲测,问"哪个回答更好"比绝对打分更可靠 模型A/B测试 成对比较 功能可用性 任务完成率 用户是否达成目标(如成功下单,解决问题) -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773502756677-2c692b34-f24f-4217-b86a-0c07089f2bff.png)
+
+<!-- 这是一张图片，ocr 内容为：第四层:运营层评估(生产指标) 表格 指标类型 关键指标 监控方式 每请求成本,TOKEN消耗 成本 按模型/功能维度统计 延迟 TTFT(首TOKEN时间),总耗时 P50/P95/P99分位值 吞吐量 压测+生产监控 QPS,并发处理能力 稳定性 实时告警 错误率,超时率,重试率 -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773502837281-56e7f559-55d8-45be-881f-1e9e31ee278a.png)
+
+
+
+## 什么是 OpenManus？它的实现原理是什么？
+OpenManus 是一个智能体框架，核心能力是自主执行，能够根据用户指定的复杂任务进行**自主规划**，并在虚拟机中调用各种工具(如编写代码、爬取数据)来完成任务。
+
+
+
+`**架构**`：OpenManus采用分层代理架构，包括：
+
+1. **BaseAgent(基础代理)：包含 run 方法，运行代理；提示词、大模型、模型状态、聊天记录、执行步骤控制**
+2. **ReActAgent(实现 ReAct 模式)：think 方法，用于模型思考和工具选择；act 方法，用于执行工具；step 方法，用于执行单个步骤：思考和行动**
+3. **ToolCallAgent(支持工具调用)**： 处理工具调用的基础代理类，**具体实现了 think 和 act 方法**，可以用作创建实例的父类
+4. 具体的智能体实例(如Manus)，这种结构便于系统扩展和维护。
+
+
+
+`**执行流程**`：OpenManus的执行流程是一个**基于ReAct模式的循环**:首先由**think方法**生成思考和工具选择，然后**act方法执行工具**，接着将结果存入记忆系统并更新状态，最后交由大模型决定下一步动作，直到任务终止。
+
+
+
+OpenManus 使用 Memory 存储对话历史，使用 AgentState（IDLE、RUNNING、FINISHED、ERROR）表示智能体当前状态，通过这两个和执行循环进行循环控制，确保过程任务的连续性和可追溯性。
+
+
+
+## 如何用 SpringAI 框架开发一个智能体？
+1.  spring-ai-alibaba-starter和 spring-ai-ollama-spring-boot-starter **依赖**来简化大模型的配置与集成，通过 Spring Al 提供的 **ChatModel** 和更高级的**ChatClientAPI**实现与AI大模型的交互，支持同步和异步对话功能。
+2. 使用 **ChatMemory 和 Advisor **结合来实现多轮对话和记忆持久化：具体是使用**MessageChatMemoryAdvisor**，它能在调用Al 模型前**<font style="color:#DF2A3F;">从ChatMemory中检索历史对话，并将对话历史作为消息集合添加到当前提示词中，从而使模型具备上下文记忆能力，保持对话连贯。</font>**
+3. 使用 PromptTemplate **统一管理提示词模板**，**支持占位符动态替换变量内容**，并从外部文件加载复杂的提示词，提高提示字的可扩展性、可维护性和灵活性（**使用文档配置提示词，promptTemplate 加载这个文档**）。
+4. **使用 RAG（检索增强生成）**，先对用户问题进行查询重写、之后加载文档、文档分割、添加元数据、向量存储、检索时使用混合检索、检索后使用文档重排提升回答准确性。
+5. **使用@Tool 和@ToolParam 注解**定义文件操作、联网搜索、PDF 生成等外部的工具，使用 chatClient 的 toos（）注册这些工具，使 AI 大模型可以根据实际情况去调用工具完成任务。
+6. **使用 stdio 和 SSE 方式调用外部的 MCP 服务**，并通过 ToolCallbackProvider 将其提供的工具集成到 ChatClient 中。
+
+
+
+## 什么是 SpringAI 框架？有什么特性？
+<font style="color:rgba(0, 0, 0, 0.9);">Spring AI 是 </font>**<font style="color:rgba(0, 0, 0, 0.9);">Spring 生态系统</font>**<font style="color:rgba(0, 0, 0, 0.9);"> 中专门用于简化人工智能应用开发的框架，旨在让 Java 开发者能够像使用传统 Spring 组件一样便捷地集成和使用大语言模型（LLM）、向量数据库、Embedding 模型等 AI 能力。</font>
+
+`**<font style="color:rgba(0, 0, 0, 0.9);">核心特性</font>**`**<font style="color:rgba(0, 0, 0, 0.9);">：</font>**
+
+<font style="color:rgba(0, 0, 0, 0.9);">1. </font>**<font style="color:rgba(0, 0, 0, 0.9);">统一的模型抽象（Portable API）</font>**
+
+<font style="color:rgba(0, 0, 0, 0.9);">提供 ChatClient、EmbeddingClient、ImageClient 等统一接口</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">无论底层是 OpenAI GPT-4、Anthropic Claude 还是本地 Ollama 模型，调用方式完全一致</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">通过配置即可切换不同提供商，无需改动业务代码</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">2. </font>**<font style="color:rgba(0, 0, 0, 0.9);">提示词模板（Prompt Templating）</font>**
+
+<font style="color:rgba(0, 0, 0, 0.9);">内置强大的提示词模板引擎，支持变量替换、条件渲染</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">可以像 Thymeleaf 一样编写结构化 Prompt，实现动态内容生成</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">3. </font>**<font style="color:rgba(0, 0, 0, 0.9);">结构化输出（Structured Output）</font>**
+
+<font style="color:rgba(0, 0, 0, 0.9);">自动将 LLM 的文本输出映射为 Java POJO</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">支持 JSON Schema 约束，确保模型返回可解析的结构化数据</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">4. </font>**<font style="color:rgba(0, 0, 0, 0.9);">向量存储与 RAG 支持</font>**
+
+<font style="color:rgba(0, 0, 0, 0.9);">内置多种向量数据库支持（Pinecone、Milvus、Chroma、Redis、PostgreSQL/pgvector 等）</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">提供 VectorStore 抽象，简化文档嵌入、相似度检索流程</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">原生支持 RAG（检索增强生成）模式，轻松构建知识库问答系统</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">5. </font>**<font style="color:rgba(0, 0, 0, 0.9);">函数调用/工具使用（Function Calling）</font>**
+
+<font style="color:rgba(0, 0, 0, 0.9);">允许 LLM 调用本地 Java 方法作为工具</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">通过注解即可将 Spring Bean 暴露为 AI 可调用的函数</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">实现 Agent 能力，让 AI 能够执行实际业务操作（如查询数据库、调用 API）</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">6. </font>**<font style="color:rgba(0, 0, 0, 0.9);">对话记忆管理</font>**
+
+<font style="color:rgba(0, 0, 0, 0.9);">提供 ChatMemory 抽象，支持多种对话历史存储策略</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);">可基于 Token 数量或消息条数进行窗口管理，避免超出模型上下文限制</font>
+
+<font style="color:rgba(0, 0, 0, 0.9);"></font>
+
+## <font style="color:rgba(0, 0, 0, 0.9);">程序集成 AI 大模型的方式</font>
+1. `**SDK 接入**`：直接使用大模型厂商提供的 SDK，
+    1. 优点：类型安全、性能优化好；
+    2. 缺点：但是和厂商绑定，依赖特定版本，可能会增加项目体积。
+    3. 场景：适用于深度集成特定模型提供商服务且**对性能要求高的场景**。
+2. `**HTTP 接入**`：使用 HTTP 请求调用 API
+    1. 优点：灵活性高、无需额外依赖；
+    2. 缺点：需要手动处理错误，序列化/反序列化复杂、代码冗长
+    3. 场景：适用 SDK 不支持的语言、简单原型验证或临时性继承场景。
+3. `**SpringAI 框架**`：使用框架提供的**<font style="color:#DF2A3F;background-color:#FBDE28;">统一抽象接口</font>**，切换不同厂商的大模型
+    1. 优点：与 Spring 生态融合，支持高级 AI 功能，简单易用，适合大多数 AI 项目开发需求，**尤其适用于****<font style="color:#DF2A3F;"> Spring 应用和需要整合向量数据库等组件的场景</font>**；提供了很多功能，能够简化 AI 应用开发
+4. `**Langchain4j 框架**`：LangChain4j适合用于**<font style="color:#DF2A3F;">构建复杂的AI应用</font>**，特别是需要链式操作、RAG(检索增强生成)应用开发的场景。它提供了丰富的组件和工具来支持**复杂工作流**，但学习曲线较陡，**文档相对较少**，可能带来一定的性能开销。
+
+
+
+## 系统提示词在 Agent 中承担了哪些职责？提示词越来越长，如何处理？
+SystemPrompt 承载五大`核心职责`：
+
+1. **角色定义和行为准则**，明确Agent身份、语气与边界
+2. **<font style="color:#DF2A3F;">工具使用规范和约束</font>**，声明可用工具、调用方式及适用场景
+3. **输出格式要求**，规定回复结构(如JSON、markdown)、标签格式与消息路由规则;
+4. **安全与权限控制**，设定不可执行操作的红线(如禁止rm-rf、禁止泄露配置)
+5. **上下文信息补充**，注入运行时关键信息(如**时间、工作目录、用户身份、项目文件**等)，提升响应准确性。
+
+
+
+`管理提示词`：采用'拆、选、扔三字策略:
+
+1. 拆——按职责将 System Prompt 拆分为独立可维护模块(如Identity、Safety、Tooling、DateTime 等);
+2. 选——依据任务场景通过promptMode(如full/minimal/none)按需加载相关模块，避免冗余;
+3. 扔——将稳定但体积大的知识(如**<font style="color:#DF2A3F;">编码规范、文档摘要</font>**)移出 prompt，**<font style="color:#DF2A3F;">存入外部知识库</font>**，由Agent**<font style="color:#DF2A3F;">通过工具按需读取</font>**，兼顾效果与token 成本。
+
+
+
+## 什么是 Re-Reading？如何基于 SpringAI 实现重读拦截器？
+Re-Reading(重读)，也称为 Re2，是一种通过让**大语言模型重新阅读问题来提高其推理能力的技术**。核心思想是，对于复杂问题，重复阅读和审视问题有助于模型更好地理解题意和约束，从而生成更准确、更深入的回答，有文献研究证明这是有一定效果的。不过，**这种方法会因为重复处理输入导致成本加倍**，所以在面向 C 端开放的应用中需要谨慎使用。
+
+
+
+`**实现方式**`：
+
+1. 定义ReReadingAdvisor 方法，实现**RequestResponseAdvisor** 接口方法，
+2. 定义重读提示词，重写相关方法；
+3. 在 chatClient 调用的时候，链式添加ReReadingAdvisor 拦截器，从而对用户的输入进行重读。
+
+```java
+.defaultAdvisors(
+                    new ReReadingAdvisor(),
+                    // 可以链式添加其他顾问
+                    new LoggingAdvisor() 
+                )
+```
+
+
+
+## 大模型的上下文窗口有限，长对话时如何保证 Agent 仍能正常工作？
+<!-- 这是一张图片，ocr 内容为：从轻到重依次上手段,能小修就不大动. 解决思路是分层防御, 第一层是CONTEXTPRUNING (上下文修朝),在每次向LM发浦来前清理不应要的内容.当上下文占比超过网值时,对早期的TOOLRESUL做 HEAD+TAIL 我剪甚至用 PLACEHOLDER菁换.但最近几轮的 ASSISTANT消息和SYSTEM PROMPT这些核心内容必须保留. 第二层是TOOL RESULT CONTEXT GUARD (工具返回兜底) ;),也运行在TRANSFORMCONTEXT 阶段.先对单条超出预算的 TOOL RESULT的总量还是超了,就从最早的开始用PLACEHOLDER普换.这是一个实时安全网,保证送给LLM的CONTEXT永远在安全范围内. 第三层是MEMORY FLUSH(记忆刷盛),当TOKEN用量接近COMPACTION 阙值时,先让AGENT把关键信息写到破损文件 做 (MEMORYYYYYY-MM-DD.MD 备份,防止后续压缩丢失重要细节. 亲四局是COMPACTION(压缩),用LLM把的对酒历史压输成转票,普遍换换原始消息,100条消意压成一段领要,10KEN,消耗直视. 为在它之前已经做了MEMORYFLUSH,关键信息已经落盘,摘要的有损压缩就可以接受了. 长对话CONTEXT管理四层防御体系 从轻到重依次上手段 轻量级处理 第二层 TOOL RESULT截断 第一层CONTEXTPRUNING 保留核心 单条过大结果 HEAD(开头) 早期 HEAD+TAIL TOOL RESULT 保留关键信息 SYSTEM PROMPT 裁剪 L 最近几轮对话 尾部错误信息 TAIL(结尾) 删除非必要 历史 确保上下文连贯 优先保留报错线索 第三层 MEMORY FLUSH 第四层 COMPACTION 提取精髓 写入磁盘兜底 一百 摘要 旧消息 摘要 后续压缩 也不怕 关键信息 TOKEN LLM压缩 降一个数量级 TOKEN大幅减少 防止细节丢失 -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1773574389177-68301765-32d9-4230-aaaf-4e36bbcdb8a1.png)
+
+
+
+## 智能体和任务链有什么区别？
++ <font style="color:rgb(51, 51, 51);">‌</font>**<font style="color:rgb(51, 51, 51);">智能体</font>**<font style="color:rgb(51, 51, 51);">‌ 是一个具备 ‌</font>**<font style="color:rgb(51, 51, 51);">自主决策、动态规划、工具调用与环境交互能力</font>**<font style="color:rgb(51, 51, 51);">‌ 的完整AI系统，强调 ‌</font>**<font style="color:rgb(51, 51, 51);">灵活性、适应性与主动性</font>**<font style="color:rgb(51, 51, 51);">‌。</font>
++ **<font style="color:rgb(51, 51, 51);">任务链</font>**<font style="color:rgb(51, 51, 51);">‌ 是一种 ‌</font>**<font style="color:rgb(51, 51, 51);">结构化、线性序列的任务分解方式</font>**<font style="color:rgb(51, 51, 51);">‌，属于工作流的一种形式，强调 ‌</font>**<font style="color:rgb(51, 51, 51);">可预测性、稳定性与步骤依赖性</font>**<font style="color:rgb(51, 51, 51);">‌。</font>
+
+<!-- 这是一张图片，ocr 内容为：任务链(TASKCHAIN) 维度 智能体(AGENT) 自主执行系统,能感知, 预定义的任务执行序列 本质 规划,行动,学习 静态执行, 动态决策, 决策方式 可根据环境调整路径 按固定顺序推进 高,可应对未知变化 低,依赖预设流程 灵活性 单步失败可重试或调整策 单步失败可能阻断整体流 容错性 复杂,多变, 结构清晰, 重复性强的任务 目标模糊的任务 适用场景 (如数据清洗, (如出差安排, 市场分析) 报表生成) 目标驱动型智能体, 链式工作流模式 典型代表 2 6 认知增强型智能体 -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1774247583326-bc3e0a36-0e06-4f45-b93d-2c072dbeac12.png)
+
+总结：
+
+1. **<font style="color:#DF2A3F;">任务链（执行体）：</font>**是按照预定义的逻辑来执行任务，用于执行固定逻辑和重复性强的任务；
+2. **<font style="color:#DF2A3F;">智能体（决策者）：</font>**是用于决策，将任务分解为多个子任务，可以动态的判断完成任务所需要的工具、任务链等，用于自主规划和调用。
+
+
+
+## 缓存命中和缓存未命中
+在大模型推理中，‌
+
+1. **缓存命中（Cache Hit）‌**指请求的输入前缀与已存储的中间计算结果（KV Cache）完全匹配，系统直接复用历史状态跳过重复计算；‌
+2. **缓存未命中（Cache Miss**）‌则指前缀不匹配或无缓存，需重新执行昂贵的预填充（Prefill）阶段计算 。‌‌
+
+<!-- 这是一张图片，ocr 内容为：核心概念:KV CACHE KEN一个 TOKEN 地进行的.在计算第N 个TOKEN时,注意力机制需要用到 大模型生成文本是一个TOKEN 前面所有TOKEN的KEY和VALUE.如果不做缓存,每次生成新TOKEN都要重新计算前面所有TOKEN的 K/V,造成大量重复计算. KVCACHE就是将已经计算好的KEY和VALUE张量保存在GPU显存中,供后续步骤直接复用. -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1782924034685-d19da9ab-83f4-4150-87f2-735a6e929b5c.png)
+
+
+
+## 面试追问
+1. 
+
+<!-- 这是一张图片，ocr 内容为：表格 问题 回答要点 "POSTGRESQL扩展,无缝集成已有SQL生态,不用额外运维 向量数据库为什么选PGVECTOR? MILVUS/PINECONE,适合个人项目轻量化部署" 怎么解决检索不准? "混合检索:向量相似度+关键词BM25;重排序:CROSS-ENCODER精排TOP- K;分块策略:滑动窗口保证上下文" "SPRING AI自动处理,超时重试,异常捕获后返回错误信息给LLM,LLM生 TOOL调用失败怎么办? 成友好提示" 和LANGCHAIN什么区别? "SPRING AI是SPRING生态的JAVA原生方案,LANGCHAIN是PYTHON为主;选型 因团队技术栈(JAVA8)" "长文档分块:PDF表格/代码块不能随意截断,做了基于标题和代码边界的 项目中最大的难点? 语义分块" -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1774625699797-bfe9c518-df11-4e89-ba05-eebce04718f7.png)
+
+2. 
+
+<!-- 这是一张图片，ocr 内容为：Q4:ADVISOR 链的执行顺序怎么控制?你的日志ADVISOR 具体实现? 回答: 注解控制顺序.我的配 接口或 SPRING AI的ADVISOR 是责任链模式,通过 ORDERED ORDER 置: 复制 PLAIN 1.LOGGINGADVISOR(最先执行,记录原始请求) 2.MESSAGECHATMEMORYADVISOR(注入历史) 3.RETRIEVALADVISOR(RAG检索,最后执行,因为需要完整PROMPT才能检索) -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1774627746053-1584b7d1-000a-4c16-88b7-c04d1535b948.png)
+
+```java
+@Override
+    public int getOrder() { return 1; } // 最高优先级
+```
+
+3. 
+
+<!-- 这是一张图片，ocr 内容为：Q1:EMBEDDING 模型怎么选的?为什么? 回答: 个人项目选型考虑三个因素:效果,成本,部署复杂度. 初期用OPENAL的 TEXT-EMBEDDING-3-SMALL做验证,1536维,效果稳定但依赖网络.后来切换 到BAAL/BGE-M3,国产开源模型,768维,支持中英文混合,效果在MTEB榜单靠前.通过 OLLAMA本地部署,零成本且数据不上云,符合个人知识库的隐私需求. 接口,切换模型只需改配置,业务代码无侵入. SPRINGAI抽象了 EMBEDDINGCLIENT -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1774627770287-e7cd321f-62cf-4fd1-a860-67e25bc5cc97.png)
+
+4. 
+
+<!-- 这是一张图片，ocr 内容为：Q6:TOOL的参数怎么校验?LLM生成错误参数怎么办? 回答: 三层防护: 定义描述和是否必填,SPRING AI 自动生成JSON SCHEMA给 1.SCHEMA约束:@TOOLPARAM LLM,引导正确生成. 2.代码校验:方法入口用BEAN VALIDATION: 复制 JAVA "FETCHURL") @TOOL(NAME PUBLIC STRING FETCHURL( M(DESCRIPTION - "网页URL,必须以HTTP开头") @TOOLPARAM(D "AHTTPS?://.*") STRING URL @PATTERN(REGEXP ]( 1/执行 3.异常反馈:参数非法时抛出 TOOLEXECUTIONEXCEPTION ,带错误信息返回给LLM,LLM自动修 正重试(类似REACT机制). -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1774628656823-6644a78d-21a4-4b21-b5da-1a7fda4d029f.png)
+
+5. 
+
+<!-- 这是一张图片，ocr 内容为：Q7:TOOL 调用超时或失败怎么处理? 回答: 配置超时和熔断: 复制 JAVA @BEAN PUBLIC TOOLCALLBACKRESOLVER TOOLCALLBACKRESOLVER() { OLCALLBACKRESOLVER.BUILDER() TOOL  RETURN CUSTOMTO .TIMEOUT(DURATION.OFSECONDS(10))1/ 10秒超时 RETRYTEMPLATE(RETRYTEMPLATE.BUILDER() MAXATTEMPTS(3) .FIXEDBACKOFF(DURATION.OFMILLIS(500)) .RETRYON(TIMEOUTEXCEPTION.CLASS) .BUILD()) .BUILD(); 失败时返回结构化错误:("ERROR":"TIMEOUT""MESSAGE":"网页下载超时,请检查URL",LLM据 此生成用户友好提示,而非直接抛异常. -->
+![](https://cdn.nlark.com/yuque/0/2026/png/29575373/1774628824800-3d2439b5-af58-46f1-98b5-9c257a0030ba.png)
+

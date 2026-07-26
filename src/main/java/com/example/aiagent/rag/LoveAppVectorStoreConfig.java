@@ -21,8 +21,8 @@ public class LoveAppVectorStoreConfig {
     @Resource
     private LoveAppDocumentLoader loveAppDocumentLoader;
 
-    @Resource
-    private MyKeywordEnricher myKeywordEnricher;
+//    @Resource
+//    private MyKeywordEnricher myKeywordEnricher;
 
     @Bean
     @Primary
@@ -30,9 +30,10 @@ public class LoveAppVectorStoreConfig {
         SimpleVectorStore simpleVectorStore = SimpleVectorStore.builder(embeddingModel).build();
         // 加载文档
         List<Document> documentList = loveAppDocumentLoader.loadMarkdowns();
-        // 自动补充关键元信息
-        List<Document> enrichDocuments= myKeywordEnricher.enrichDocument(documentList);
-        simpleVectorStore.add(enrichDocuments);
+//        // 自动补充关键元信息
+//        List<Document> enrichDocuments= myKeywordEnricher.enrichDocument(documentList);
+        simpleVectorStore.add(documentList);
+//        simpleVectorStore.add(enrichDocuments);
         return simpleVectorStore;
     }
 

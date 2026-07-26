@@ -116,7 +116,7 @@ ai-agent/
 │   ├── controller/        # REST 接口
 │   ├── filter/            # JWT 鉴权过滤器
 │   ├── model/             # 数据模型（含 RAG 引用标注字段）
-│   ├── rag/               # RAG 检索增强（向量存储、文档加载、查询重写）
+│   ├── rag/               # RAG 检索增强（本地/PG 向量存储、文档加载、查询重写、元信息增强），PgVectorStoreConfig（基于 PGVector 向量数据库）
 │   ├── repository/        # 数据访问层
 │   ├── service/           # 业务逻辑（含 AuthService、CaptchaService 验证码服务、UserService）
 │   └── tool/              # Agent 工具（文件操作、PDF生成、百度联网搜索、图片搜索等）
