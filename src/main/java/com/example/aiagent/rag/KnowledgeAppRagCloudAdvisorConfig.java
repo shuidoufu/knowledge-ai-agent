@@ -16,15 +16,15 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @Slf4j
-public class LoveAppRagCloudAdvisorConfig {
+public class KnowledgeAppRagCloudAdvisorConfig {
 
     @Value("${spring.ai.dashscope.api-key}")
     private String dashScopeApiKey;
 
     @Bean
-    public Advisor loveAppRagCloudAdvisor() {
+    public Advisor knowledgeRagCloudAdvisor() {
         DashScopeApi dashScopeApi = new DashScopeApi(dashScopeApiKey);
-        final String KNOWLEDGE_INDEX = "恋爱大师";
+        final String KNOWLEDGE_INDEX = "知识助手";
         DocumentRetriever dashScopeDocumentRetriever = new DashScopeDocumentRetriever(dashScopeApi,
                 DashScopeDocumentRetrieverOptions.builder()
                         // 知识库索引名称

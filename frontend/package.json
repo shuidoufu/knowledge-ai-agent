@@ -9,6 +9,7 @@
     "preview": "npx vite preview"
   },
   "dependencies": {
+    "@lucide/vue": "^1.27.0",
     "axios": "^1.7.7",
     "dompurify": "^3.3.1",
     "marked": "^17.0.3",

@@ -14,9 +14,9 @@
             class="toast"
             :class="'toast-' + t.type"
           >
-            <svg v-if="t.type === 'success'" viewBox="0 0 24 24" fill="none" class="toast-icon"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <svg v-else-if="t.type === 'error'" viewBox="0 0 24 24" fill="none" class="toast-icon"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M12 8v4m0 4v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" class="toast-icon"><path d="M12 16v-4m0-4v.01M12 2a10 10 0 100 20 10 10 0 000-20z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <Check v-if="t.type === 'success'" class="toast-icon" size="20" />
+	            <AlertCircle v-else-if="t.type === 'error'" class="toast-icon" size="20" />
+	            <Info v-else class="toast-icon" size="20" />
             <span class="toast-text">{{ t.message }}</span>
           </div>
         </TransitionGroup>
@@ -53,9 +53,9 @@
       <div v-if="!loggedIn" class="dock-trigger dock-trigger-expanded" @click="goLogin" title="登录">
         <div class="dock-ring-bar-wrapper">
           <div class="dock-avatar-ring">
-            <div class="dock-avatar">
-              <svg class="dock-guest-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            </div>
+          <div class="dock-avatar">
+	              <User class="dock-guest-icon" size="24" />
+	            </div>
           </div>
           <div class="dock-name-bar dock-name-bar-guest">
             <span class="dock-name-text">未登录</span>
@@ -87,13 +87,13 @@
           <div v-show="showDropdown" class="dock-dropdown-panel">
             <div class="dock-dropdown-name">{{ reactiveUsername }}</div>
             <button type="button" class="dock-dropdown-item" @click="goChangePassword">
-              <svg viewBox="0 0 24 24" fill="none" class="dropdown-icon"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-8V7a4 4 0 00-8 0v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-              修改密码
-            </button>
-            <button type="button" class="dock-dropdown-item" @click="logout">
-              <svg viewBox="0 0 24 24" fill="none" class="dropdown-icon"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4m7 14l5-5-5-5m5 5H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              退出登录
-            </button>
+	              <Lock class="dropdown-icon" size="18" />
+	              修改密码
+	            </button>
+	            <button type="button" class="dock-dropdown-item" @click="logout">
+	              <LogOut class="dropdown-icon" size="18" />
+	              退出登录
+	            </button>
           </div>
         </Transition>
       </div>
@@ -106,6 +106,7 @@ import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { request } from './api/request'
 import { isLoggedIn, getUsername, removeToken, token, username as reactiveUsername } from './utils/auth'
+import { Check, AlertCircle, Info, User, Lock, LogOut } from '@lucide/vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -143,9 +144,9 @@ onMounted(async () => {
   }
 })
 
-// 是否显示 dock（任务④：侧边栏折叠时隐藏，仅适用于 LoveChat 页面）
+// 是否显示 dock
 const showDock = computed(() => {
-  if (route.path === '/love') return isSidebarOpen.value
+  if (route.path === '/knowledge') return isSidebarOpen.value
   return true // 其他页面始终显示
 })
 
@@ -163,15 +164,15 @@ const avatarBgColor = computed(() => {
   if (!name) return '#64748b'
   let n = 0
   for (let i = 0; i < name.length; i++) n += name.charCodeAt(i)
-  const hues = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#22c55e', '#14b8a6', '#3b82f6']
+  const hues = ['#6366f1', '#8b5cf6', '#0D9488', '#ef4444', '#f97316', '#22c55e', '#14b8a6', '#3b82f6']
   return hues[n % hues.length]
 	})
 
 // 胶囊背景固定使用与头像环一致的靛蓝色系渐变
-const capsuleStyle = computed(() => ({
-  background: `linear-gradient(135deg, rgba(99,102,241,0.06), rgba(129,140,248,0.12))`,
-  borderColor: `rgba(99,102,241,0.18)`
-}))
+	const capsuleStyle = computed(() => ({
+	  background: `linear-gradient(135deg, rgba(16,185,129,0.06), rgba(52,211,153,0.12))`,
+	  borderColor: `rgba(16,185,129,0.18)`
+	}))
 
 function goLogin() { router.push('/login') }
 function closeDropdown() { showDropdown.value = false }
@@ -193,27 +194,27 @@ onUnmounted(() => { document.removeEventListener('click', handleClickOutside) })
 </script>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
-:root {
-  --bg-page: #f5f3ff;
-  --bg-card: #ffffff;
-  --text-primary: #1e1b4b;
-  --text-secondary: #6366f1;
-  --text-muted: #94a3b8;
-  --border-light: #e0e7ff;
-  --border-lighter: #eef2ff;
-  --shadow-sm: 0 1px 3px rgba(99,102,241,0.08);
-  --shadow-md: 0 4px 16px rgba(99,102,241,0.10);
-  --shadow-lg: 0 10px 40px rgba(99,102,241,0.12);
-  --pink: #ec4899;
-  --blue: #3b82f6;
-  --primary: #6366f1;
-  --primary-light: #818cf8;
-  --cta: #10b981;
-  --glass-bg: rgba(255,255,255,0.75);
-  --glass-border: rgba(255,255,255,0.3);
-  --glass-shadow: 0 8px 32px rgba(99,102,241,0.08);
-}
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Ma+Shan+Zheng&display=swap');
+	:root {
+	  --bg-page: #ECFDF5;
+	  --bg-card: #ffffff;
+	  --text-primary: #064E3B;
+	  --text-secondary: #10B981;
+	  --text-muted: #94a3b8;
+	  --border-light: #A7F3D0;
+	  --border-lighter: #D1FAE5;
+	  --shadow-sm: 0 1px 3px rgba(16,185,129,0.08);
+	  --shadow-md: 0 4px 16px rgba(16,185,129,0.10);
+	  --shadow-lg: 0 10px 40px rgba(16,185,129,0.12);
+	  --teal: #10B981;
+	  --blue: #3b82f6;
+	  --primary: #10B981;
+	  --primary-light: #34D399;
+	  --cta: #10b981;
+	  --glass-bg: rgba(255,255,255,0.75);
+	  --glass-border: rgba(255,255,255,0.3);
+	  --glass-shadow: 0 8px 32px rgba(16,185,129,0.08);
+	}
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -346,21 +347,25 @@ html, body { overflow-x: hidden; }
 
 /* 展开状态：头像在顶层 + 圆柱长条在底层被部分覆盖 */
 .dock-trigger-expanded {
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  padding: 0;
-  background: rgba(255,255,255,0.5);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 0px solid rgba(255,255,255,0.4);
-  box-shadow: 0 2px 12px rgba(99,102,241,0.08);
-  transition: box-shadow 0.25s ease, background 0.25s ease;
-}
-.dock-trigger-expanded:hover {
-  box-shadow: 0 6px 24px rgba(99,102,241,0.15);
-  background: rgba(255,255,255,0.7);
-}
+	  border-radius: 999px;
+	  display: flex;
+	  align-items: center;
+	  padding: 0;
+	  background: rgba(255,255,255,0.5);
+	  backdrop-filter: blur(16px);
+	  -webkit-backdrop-filter: blur(16px);
+	  border: 0px solid rgba(255,255,255,0.4);
+	  box-shadow:
+	    0 2px 12px rgba(99,102,241,0.08),
+	    0 0 0 1px rgba(255,255,255,0.3) inset;
+	  transition: box-shadow 0.25s ease, background 0.25s ease;
+	}
+	.dock-trigger-expanded:hover {
+	  box-shadow:
+	    0 6px 24px rgba(99,102,241,0.15),
+	    0 0 0 1px rgba(255,255,255,0.5) inset;
+	  background: rgba(255,255,255,0.65);
+	}
 
 /* 圆柱 + 头像组合容器 — 头像左侧 + 胶囊右侧重叠 */
 .dock-ring-bar-wrapper {
@@ -370,35 +375,35 @@ html, body { overflow-x: hidden; }
 }
 
 /* 胶囊（头像右侧，负边距滑入头像下方） */
-.dock-name-bar {
-  height: 100%;
-  padding: 0 30px 0 40px;
-  display: flex;
-  align-items: center;
-  border-radius: 999px;
-  border: 3px solid;
-  flex: 1;
-  min-width: 50px;
-  margin-left: -27px;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  background: linear-gradient(135deg, rgba(99,102,241,0.06), rgba(129,140,248,0.10));
-  border-color: rgba(99,102,241,0.25);
-}
-.dock-name-bar-guest {
-  background: linear-gradient(135deg, rgba(99,102,241,0.04), rgba(129,140,248,0.06));
-  border-color: rgba(99,102,241,0.18);
-}
-.dock-name-text {
-  font-size: 0.85rem;
-  font-weight: 400;
-  color: #1e1b4b;
-  white-space: nowrap;
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  user-select: none;
-}
+	.dock-name-bar {
+	  height: 100%;
+	  padding: 0 30px 0 40px;
+	  display: flex;
+	  align-items: center;
+	  border-radius: 999px;
+	  border: 3px solid;
+	  flex: 1;
+	  min-width: 50px;
+	  margin-left: -27px;
+	  backdrop-filter: blur(4px);
+	  -webkit-backdrop-filter: blur(4px);
+	  background: linear-gradient(135deg, rgba(16,185,129,0.06), rgba(52,211,153,0.10));
+	  border-color: rgba(16,185,129,0.25);
+	}
+	.dock-name-bar-guest {
+	  background: linear-gradient(135deg, rgba(16,185,129,0.04), rgba(52,211,153,0.06));
+	  border-color: rgba(16,185,129,0.18);
+	}
+	.dock-name-text {
+	  font-size: 0.85rem;
+	  font-weight: 400;
+	  color: #065F46;
+	  white-space: nowrap;
+	  max-width: 100px;
+	  overflow: hidden;
+	  text-overflow: ellipsis;
+	  user-select: none;
+	}
 
 /* 头像（顶层，覆盖胶囊左侧边缘） */
 .dock-avatar-ring {
@@ -413,16 +418,16 @@ html, body { overflow-x: hidden; }
   z-index: 1;
   background: var(--bg-page);
 }
-.dock-avatar-ring::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 50%;
-  background: conic-gradient(#6366f1, #818cf8, #a78bfa, #c4b5fd, #6366f1);
-  animation: ringSpin 4s linear infinite;
-  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #fff calc(100% - 2.5px));
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #fff calc(100% - 2.5px));
-}
+	.dock-avatar-ring::before {
+	  content: '';
+	  position: absolute;
+	  inset: -2px;
+	  border-radius: 50%;
+	  background: conic-gradient(#10B981, #34D399, #6EE7B7, #A7F3D0, #10B981);
+	  animation: ringSpin 4s linear infinite;
+	  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #fff calc(100% - 2.5px));
+	  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #fff calc(100% - 2.5px));
+	}
 .dock-avatar {
   width: 44px;
   height: 44px;
@@ -438,43 +443,43 @@ html, body { overflow-x: hidden; }
 .dock-avatar:hover {
   transform: scale(1.08);
 }
-.dock-letter {
-  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
-  font-size: 1.4rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #6366f1, #818cf8, #a78bfa);
-  background-size: 200% 200%;
-  animation: letterShift 3s ease-in-out infinite, letterGlow 2.5s ease-in-out infinite;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  user-select: none;
-}
-.dock-guest-icon {
-  width: 24px;
-  height: 24px;
-  color: #a5b4fc;
-  opacity: 0.7;
-}
+	.dock-letter {
+	  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+	  font-size: 1.4rem;
+	  font-weight: 700;
+	  background: linear-gradient(135deg, #10B981, #34D399, #6EE7B7);
+	  background-size: 200% 200%;
+	  animation: letterShift 3s ease-in-out infinite, letterGlow 2.5s ease-in-out infinite;
+	  -webkit-background-clip: text;
+	  -webkit-text-fill-color: transparent;
+	  background-clip: text;
+	  user-select: none;
+	}
+	.dock-guest-icon {
+	  width: 24px;
+	  height: 24px;
+	  color: #6EE7B7;
+	  opacity: 0.7;
+	}
 .dock-avatar-wrap {
   position: relative;
 }
 
 /* 上拉菜单（从底部弹出） */
-.dock-dropdown-panel {
-  position: absolute;
-  bottom: calc(100% + 12px);
-  left: 0;
-  min-width: 180px;
-  padding: 0.4rem 0;
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 14px;
-  box-shadow: 0 -8px 32px rgba(99,102,241,0.1);
-  z-index: 100;
-}
+	.dock-dropdown-panel {
+	  position: absolute;
+	  bottom: calc(100% + 12px);
+	  left: 0;
+	  min-width: 180px;
+	  padding: 0.4rem 0;
+	  background: var(--glass-bg);
+	  backdrop-filter: blur(20px);
+	  -webkit-backdrop-filter: blur(20px);
+	  border: 1px solid var(--glass-border);
+	  border-radius: 14px;
+	  box-shadow: 0 -8px 32px rgba(16,185,129,0.1);
+	  z-index: 100;
+	}
 .dock-dropdown-name {
   padding: 0.6rem 1rem;
   color: var(--text-primary);
@@ -496,10 +501,10 @@ html, body { overflow-x: hidden; }
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
-.dock-dropdown-item:hover {
-  background: rgba(99,102,241,0.08);
-  color: var(--primary);
-}
+	.dock-dropdown-item:hover {
+	  background: rgba(16,185,129,0.08);
+	  color: var(--primary);
+	}
 .dropdown-icon {
   width: 18px;
   height: 18px;
@@ -577,15 +582,15 @@ html, body { overflow-x: hidden; }
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
-.toast-success {
-  background: rgba(16,185,129,0.92);
-}
-.toast-error {
-  background: rgba(239,68,68,0.92);
-}
-.toast-info {
-  background: rgba(99,102,241,0.92);
-}
+	.toast-success {
+	  background: rgba(16,185,129,0.92);
+	}
+	.toast-error {
+	  background: rgba(239,68,68,0.92);
+	}
+	.toast-info {
+	  background: rgba(16,185,129,0.92);
+	}
 .toast-icon {
   width: 20px;
   height: 20px;

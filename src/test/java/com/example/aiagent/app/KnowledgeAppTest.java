@@ -10,15 +10,15 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-class LoveAppTest {
+class KnowledgeAppTest {
 
     @Resource
-    private LoveApp loveApp;
+    private KnowledgeApp knowledgeApp;
     @Test
     void test() {
         String chatId = UUID.randomUUID().toString();
         String message = "你好，我是程序员鱼皮";
-        String answer = loveApp.doChat(message, chatId);
+        String answer = knowledgeApp.doChat(message, chatId);
         Assertions.assertNotNull(answer);
     }
 

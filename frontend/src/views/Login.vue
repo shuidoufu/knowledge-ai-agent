@@ -15,12 +15,12 @@
     </div>
 
     <router-link to="/" class="back-link">
-      <svg viewBox="0 0 24 24" fill="none" class="icon"><path d="M19 12H5m7-7l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      返回
-    </router-link>
+	      <ArrowLeft class="icon" size="16" />
+	      返回
+	    </router-link>
     <div class="login-card">
       <h1>{{ isRegister ? '注册' : '登录' }}</h1>
-      <p class="hint">{{ isRegister ? '创建账号后可体验所有 AI 功能' : '登录后可使用 AI 恋爱大师、超级智能体等会话功能' }}</p>
+      <p class="hint">{{ isRegister ? '创建账号后可体验所有 AI 功能' : '登录后可使用个人知识助手、超级智能体等会话功能' }}</p>
       <form @submit.prevent="submit" class="form" :class="{ shake: shaking }">
         <input
           v-model="username"
@@ -39,24 +39,24 @@
             class="input pwd-input"
           />
           <button type="button" class="pwd-toggle" @click="showPassword = !showPassword" tabindex="-1">
-            <svg v-if="showPassword" viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
-          </button>
-        </div>
+	            <EyeOff v-if="showPassword" class="pwd-eye-icon" size="20" />
+	            <Eye v-else class="pwd-eye-icon" size="20" />
+	          </button>
+	        </div>
 
-        <!-- 注册模式：确认密码 -->
-        <div v-if="isRegister" class="pwd-input-wrap">
-          <input
-            v-model="confirmPassword"
-            :type="showConfirmPwd ? 'text' : 'password'"
-            placeholder="确认密码"
-            autocomplete="new-password"
-            class="input pwd-input"
-          />
-          <button type="button" class="pwd-toggle" @click="showConfirmPwd = !showConfirmPwd" tabindex="-1">
-            <svg v-if="showConfirmPwd" viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" class="pwd-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
-          </button>
+	        <!-- 注册模式：确认密码 -->
+	        <div v-if="isRegister" class="pwd-input-wrap">
+	          <input
+	            v-model="confirmPassword"
+	            :type="showConfirmPwd ? 'text' : 'password'"
+	            placeholder="确认密码"
+	            autocomplete="new-password"
+	            class="input pwd-input"
+	          />
+	          <button type="button" class="pwd-toggle" @click="showConfirmPwd = !showConfirmPwd" tabindex="-1">
+	            <EyeOff v-if="showConfirmPwd" class="pwd-eye-icon" size="20" />
+	            <Eye v-else class="pwd-eye-icon" size="20" />
+	          </button>
         </div>
 
         <!-- 注册模式：图片验证码 -->
@@ -100,6 +100,7 @@ import { ref, inject, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { request } from '../api/request'
 import { setToken } from '../utils/auth'
+import { ArrowLeft, Eye, EyeOff } from '@lucide/vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -249,55 +250,58 @@ async function submit() {
   z-index: 0;
 }
 .deco svg { width: 100%; height: 100%; }
-.back-link {
-  position: absolute;
-  top: 1.25rem;
-  left: 1.5rem;
-  color: #6366f1;
-  text-decoration: none;
-  font-size: 0.85rem;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.4);
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-  z-index: 1;
-}
-.back-link .icon {
-  width: 16px;
-  height: 16px;
-}
-.back-link:hover {
-  background: rgba(255,255,255,0.9);
-  color: #4f46e5;
-  box-shadow: 0 2px 8px rgba(99,102,241,0.1);
-}
+	.back-link {
+	  position: absolute;
+	  top: 1.25rem;
+	  left: 1.5rem;
+	  color: #10B981;
+	  text-decoration: none;
+	  font-size: 0.85rem;
+	  font-weight: 500;
+	  display: inline-flex;
+	  align-items: center;
+	  gap: 4px;
+	  padding: 6px 14px;
+	  border-radius: 999px;
+	  background: rgba(255,255,255,0.6);
+	  backdrop-filter: blur(8px);
+	  -webkit-backdrop-filter: blur(8px);
+	  border: 1px solid rgba(255,255,255,0.4);
+	  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+	  z-index: 1;
+	}
+	.back-link .icon {
+	  width: 16px;
+	  height: 16px;
+	}
+	.back-link:hover {
+	  background: rgba(255,255,255,0.9);
+	  color: #059669;
+	  box-shadow: 0 2px 8px rgba(16,185,129,0.1);
+	}
 .login-card {
-  width: 100%;
-  max-width: 380px;
-  padding: 2rem;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.3);
-  box-shadow: 0 8px 32px rgba(99,102,241,0.08);
-  position: relative;
-  z-index: 1;
-}
-.login-card h1 {
-  color: #1e1b4b;
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-  text-align: center;
-  font-weight: 700;
-}
+	  width: 100%;
+	  max-width: 380px;
+	  padding: 2rem;
+	  border-radius: 20px;
+	  background: rgba(255,255,255,0.55);
+	  backdrop-filter: blur(20px);
+	  -webkit-backdrop-filter: blur(20px);
+	  border: 1px solid rgba(255,255,255,0.4);
+	  border-bottom: 1px solid rgba(99,102,241,0.06);
+	  box-shadow:
+	    0 8px 32px rgba(99,102,241,0.08),
+	    0 0 0 1px rgba(255,255,255,0.5) inset;
+	  position: relative;
+	  z-index: 1;
+	}
+	.login-card h1 {
+	  color: #065F46;
+	  font-size: 1.5rem;
+	  margin-bottom: 0.5rem;
+	  text-align: center;
+	  font-weight: 700;
+	}
 .hint {
   color: #64748b;
   font-size: 0.875rem;
@@ -323,45 +327,45 @@ async function submit() {
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 .input::placeholder { color: #94a3b8; }
-.input:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
-  transform: scale(1.01);
-}
+	.input:focus {
+	  outline: none;
+	  border-color: #10B981;
+	  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+	  transform: scale(1.01);
+	}
 .error {
   color: #ef4444;
   font-size: 0.875rem;
   margin: -0.25rem 0 0;
   font-weight: 500;
 }
-.btn {
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  border: none;
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  margin-top: 0.5rem;
-  letter-spacing: 0.02em;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 14px rgba(99,102,241,0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-.btn:hover:not(:disabled) {
-  opacity: 0.95;
-  box-shadow: 0 6px 24px rgba(99,102,241,0.4);
-  transform: translateY(-1px);
-}
-.btn:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
-}
+	.btn {
+	  padding: 0.75rem 1rem;
+	  border-radius: 12px;
+	  border: none;
+	  background: linear-gradient(135deg, #10B981, #059669);
+	  color: #fff;
+	  font-size: 1rem;
+	  font-weight: 600;
+	  cursor: pointer;
+	  margin-top: 0.5rem;
+	  letter-spacing: 0.02em;
+	  transition: all 0.2s ease;
+	  box-shadow: 0 4px 14px rgba(5,150,105,0.3);
+	  display: flex;
+	  align-items: center;
+	  justify-content: center;
+	  gap: 8px;
+	}
+	.btn:hover:not(:disabled) {
+	  opacity: 0.95;
+	  box-shadow: 0 6px 24px rgba(5,150,105,0.4);
+	  transform: translateY(-1px);
+	}
+	.btn:active:not(:disabled) {
+	  transform: translateY(0);
+	  box-shadow: 0 2px 8px rgba(5,150,105,0.3);
+	}
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -387,16 +391,16 @@ async function submit() {
   text-align: center;
   font-size: 0.9rem;
 }
-.toggle-mode a {
-  color: #6366f1;
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.2s;
-}
-.toggle-mode a:hover {
-  color: #4f46e5;
-  text-decoration: underline;
-}
+	.toggle-mode a {
+	  color: #10B981;
+	  text-decoration: none;
+	  font-weight: 500;
+	  transition: color 0.2s;
+	}
+	.toggle-mode a:hover {
+	  color: #059669;
+	  text-decoration: underline;
+	}
 
 /* 验证码行 */
 .captcha-row {
@@ -437,9 +441,9 @@ async function submit() {
   transition: border-color 0.2s, color 0.2s;
 }
 .captcha-placeholder:hover {
-  border-color: #6366f1;
-  color: #6366f1;
-}
+	  border-color: #10B981;
+	  color: #10B981;
+	}
 
 /* 密码输入框显示/隐藏 */
 .pwd-input-wrap {
@@ -470,9 +474,9 @@ async function submit() {
   padding: 0;
 }
 .pwd-toggle:hover {
-  color: #6366f1;
-  background: rgba(99,102,241,0.06);
-}
+	  color: #10B981;
+	  background: rgba(16,185,129,0.06);
+	}
 .pwd-eye-icon {
   width: 20px;
   height: 20px;

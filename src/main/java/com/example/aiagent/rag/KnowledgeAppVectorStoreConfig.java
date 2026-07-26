@@ -13,23 +13,23 @@ import org.springframework.context.annotation.Primary;
 import java.util.List;
 
 /**
- * 恋爱大师向量数据库配置(初始化基于 **本地内存** 的向量数据库Bean)
+ * 知识库向量数据库配置（初始化基于本地内存的向量数据库Bean）
  */
 @Configuration
-public class LoveAppVectorStoreConfig {
+public class KnowledgeAppVectorStoreConfig {
 
     @Resource
-    private LoveAppDocumentLoader loveAppDocumentLoader;
+    private KnowledgeAppDocumentLoader knowledgeAppDocumentLoader;
 
 //    @Resource
 //    private MyKeywordEnricher myKeywordEnricher;
 
     @Bean
     @Primary
-    public VectorStore loveAppVectorStore(@Qualifier("dashscopeEmbeddingModel") EmbeddingModel embeddingModel) {
+    public VectorStore knowledgeVectorStore(@Qualifier("dashscopeEmbeddingModel") EmbeddingModel embeddingModel) {
         SimpleVectorStore simpleVectorStore = SimpleVectorStore.builder(embeddingModel).build();
         // 加载文档
-        List<Document> documentList = loveAppDocumentLoader.loadMarkdowns();
+        List<Document> documentList = knowledgeAppDocumentLoader.loadMarkdowns();
 //        // 自动补充关键元信息
 //        List<Document> enrichDocuments= myKeywordEnricher.enrichDocument(documentList);
         simpleVectorStore.add(documentList);

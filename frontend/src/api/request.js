@@ -31,12 +31,12 @@ request.interceptors.response.use(
 )
 
 /**
- * 纯文本流式聊天 - 恋爱大师
+ * 纯文本流式聊天 - 知识助手
  * 使用 /chat/stream 端点，无 SSE 包装，兼容换行符
  * 支持 AbortController 取消
  */
-export function streamLoveChat(message, chatId, { onChunk, onDone, onError }, signal) {
-  const url = new URL(BASE_URL + '/api/ai/love_app/chat/stream', window.location.origin)
+export function streamKnowledgeChat(message, chatId, { onChunk, onDone, onError }, signal) {
+  const url = new URL(BASE_URL + '/api/ai/knowledge/chat/stream', window.location.origin)
   url.searchParams.set('message', message)
   url.searchParams.set('chatId', chatId)
 
@@ -79,13 +79,13 @@ export function streamLoveChat(message, chatId, { onChunk, onDone, onError }, si
 }
 
 /**
- * 带引用标注的 RAG 流式聊天
+ * 带引用标注的 RAG 流式聊天 - 知识助手
  * 使用 /chat/rag/stream 端点
  * 流结束后会收到 <!--RAG_REFS--> 标记 + JSON 引用数据
  * onDone(refs) 回调会传入解析后的引用数组
  */
-export function streamLoveChatRag(message, chatId, { onChunk, onDone, onError }, signal) {
-  const url = new URL(BASE_URL + '/api/ai/love_app/chat/rag/stream', window.location.origin)
+export function streamKnowledgeChatRag(message, chatId, { onChunk, onDone, onError }, signal) {
+  const url = new URL(BASE_URL + '/api/ai/knowledge/chat/rag/stream', window.location.origin)
   url.searchParams.set('message', message)
   url.searchParams.set('chatId', chatId)
 
@@ -204,12 +204,12 @@ export function streamManusChat(message, { onChunk, onDone, onError }, signal) {
  * 更新会话标题
  */
 export function updateChatTitle(chatId, title) {
-  return request.put(`/ai/love_app/chat/history/${chatId}/title`, { title })
+  return request.put(`/ai/knowledge/chat/history/${chatId}/title`, { title })
 }
 
 /**
  * 删除会话
  */
 export function deleteChat(chatId) {
-  return request.delete(`/ai/love_app/chat/history/${chatId}`)
+  return request.delete(`/ai/knowledge/chat/history/${chatId}`)
 }

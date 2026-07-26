@@ -72,8 +72,22 @@
 	            <circle cx="28" cy="30" r="2" fill="#F59E0B" opacity="0.7"/>
 	          </svg>
 	        </div>
-	        <h3>你好，我是 AI 恋爱大师</h3>
-	        <p class="welcome-desc">告诉我你的恋爱困惑，我会给你最贴心的建议</p>
+	        <h3>你的知识库已就绪</h3>
+	        <p class="welcome-desc">基于你的笔记文档与网页收藏，AI 帮你回忆、理解和思考</p>
+	        <div class="welcome-tips">
+	          <span class="tip-item">
+	            <svg viewBox="0 0 24 24" fill="none" class="tip-icon"><path d="M12 4v16M4 12h16" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/></svg>
+	            新建会话
+	          </span>
+	          <span class="tip-item">
+	            <svg viewBox="0 0 24 24" fill="none" class="tip-icon"><circle cx="11" cy="11" r="6" stroke="#10B981" stroke-width="2"/><path d="M20 20l-4.3-4.3" stroke="#10B981" stroke-width="2" stroke-linecap="round"/></svg>
+	            检索知识库
+	          </span>
+	          <span class="tip-item">
+	            <svg viewBox="0 0 24 24" fill="none" class="tip-icon"><path d="M21 12a9 9 0 11-9-9" stroke="#10B981" stroke-width="2" stroke-linecap="round"/><path d="M12 6v6l3 3" stroke="#10B981" stroke-width="2" stroke-linecap="round"/></svg>
+	            快速问答
+	          </span>
+	        </div>
 	      </div>
       <div
         v-for="(msg, i) in messages"
@@ -155,7 +169,7 @@
       </div>
       <textarea
         v-model="inputText"
-        placeholder="输入你的心事..."
+        placeholder="输入你想了解的内容..."
         rows="2"
         :disabled="loading"
         @keydown.enter.exact.prevent="send"
@@ -204,7 +218,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted, inject } from 'vue'
-import { streamLoveChat, streamLoveChatRag, request, updateChatTitle, deleteChat } from '../api/request'
+import { streamKnowledgeChat, streamKnowledgeChatRag, request, updateChatTitle, deleteChat } from '../api/request'
 import { username as reactiveUsername } from '../utils/auth'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -245,9 +259,9 @@ function closePreview() {
 
 // 当前会话标题
 const currentChatTitle = computed(() => {
-  if (!chatId.value) return 'AI 恋爱大师'
+  if (!chatId.value) return '个人知识助手'
   const found = historyList.value.find(c => c.chatId === chatId.value)
-  return found ? found.title : 'AI 恋爱大师'
+  return found ? found.title : '个人知识助手'
 })
 
 const userAvatarLetter = computed(() => {
@@ -259,18 +273,18 @@ const userAvatarColor = computed(() => {
   if (!name) return '#64748b'
   let n = 0
   for (let i = 0; i < name.length; i++) n += name.charCodeAt(i)
-  const hues = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#22c56e', '#14b8a6', '#3b82f6']
+  const hues = ['#6366f1', '#8b5cf6', '#0D9488', '#ef4444', '#f97316', '#22c56e', '#14b8a6', '#3b82f6']
   return hues[n % hues.length]
 })
 
 function generateChatId() {
   const name = reactiveUsername.value || 'anonymous'
-  return `love_${name}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+  return `know_${name}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
 }
 
 async function fetchHistoryList() {
   try {
-    const res = await request.get('/ai/love_app/chat/history')
+    const res = await request.get('/ai/knowledge/chat/history')
     historyList.value = res.data
   } catch (error) {
     console.error('Failed to load history list:', error)
@@ -283,7 +297,7 @@ async function loadHistoryChat(loadChatId) {
     isSidebarOpen.value = false
   }
   try {
-    const res = await request.get(`/ai/love_app/chat/history/${loadChatId}`)
+    const res = await request.get(`/ai/knowledge/chat/history/${loadChatId}`)
     chatId.value = loadChatId
     messages.value = res.data.map(m => ({
       role: m.role.toLowerCase(),
@@ -445,7 +459,7 @@ function send() {
 
   // RAG 模式：使用带引用标注的流式接口
   if (ragEnabled.value) {
-    streamLoveChatRag(text, chatId.value, {
+    streamKnowledgeChatRag(text, chatId.value, {
       onChunk(chunk) {
         if (chunk) {
           messages.value[aiIndex].content += chunk
@@ -474,7 +488,7 @@ function send() {
     }, controller.signal)
   } else {
     // 普通模式：不使用 RAG
-    streamLoveChat(text, chatId.value, {
+    streamKnowledgeChat(text, chatId.value, {
       onChunk(chunk) {
         if (chunk) {
           messages.value[aiIndex].content += chunk
@@ -657,8 +671,8 @@ function stopStream() {
 .history-item:hover {
   background: #f8fafc;
 }
-	.history-item.active {
-	  background: rgba(16, 185, 129, 0.06);
+.history-item.active {
+	  background: rgba(52, 211, 153, 0.06);
 	}
 .history-item-main {
   cursor: pointer;
@@ -1041,6 +1055,30 @@ function stopStream() {
   line-height: 1.6;
   max-width: 300px;
   color: #94a3b8;
+  margin-bottom: 1.5rem;
+}
+.welcome-tips {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.tip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: #64748b;
+  background: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.3);
+  backdrop-filter: blur(8px);
+}
+.tip-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 /* 打字指示器 */
@@ -1476,14 +1514,14 @@ function stopStream() {
   padding-top: 12px;
 }
 .rag-refs-header {
-	  display: flex;
-	  align-items: center;
-	  gap: 6px;
-	  font-size: 0.82rem;
-	  color: #10B981;
-	  font-weight: 500;
-	  margin-bottom: 8px;
-	}
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #10B981;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
 .refs-icon {
   width: 16px;
   height: 16px;
@@ -1516,8 +1554,8 @@ function stopStream() {
   transition: color 0.2s;
 }
 .refs-toggle:hover {
-	  color: #10B981;
-	}
+  color: #10B981;
+}
 .toggle-icon {
   width: 18px;
   height: 18px;
@@ -1532,33 +1570,33 @@ function stopStream() {
   gap: 8px;
 }
 .rag-ref-item {
-	  display: flex;
-	  gap: 12px;
-	  padding: 12px 14px;
-	  background: rgba(255,255,255,0.5);
-	  border: 1px solid rgba(16,185,129,0.08);
-	  border-left: 3px solid #34D399;
-	  border-radius: 12px;
-	  transition: background 0.2s, box-shadow 0.2s;
-	  box-shadow: 0 1px 4px rgba(0,0,0,0.02);
-	}
-	.rag-ref-item:hover {
-	  background: rgba(255,255,255,0.75);
-	  box-shadow: 0 4px 12px rgba(16,185,129,0.06);
-	}
-	.rag-ref-index {
-	  font-size: 0.75rem;
-	  font-weight: 700;
-	  color: #D97706;
-	  background: rgba(245,158,11,0.1);
-	  border-radius: 8px;
-	  padding: 3px 8px;
-	  height: fit-content;
-	  white-space: nowrap;
-	  flex-shrink: 0;
-	  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-	  letter-spacing: 0.02em;
-	}
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.5);
+  border: 1px solid rgba(16,185,129,0.08);
+  border-left: 3px solid #34D399;
+  border-radius: 12px;
+  transition: background 0.2s, box-shadow 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+}
+.rag-ref-item:hover {
+  background: rgba(255,255,255,0.75);
+  box-shadow: 0 4px 12px rgba(16,185,129,0.06);
+}
+.rag-ref-index {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #D97706;
+  background: rgba(245,158,11,0.1);
+  border-radius: 8px;
+  padding: 3px 8px;
+  height: fit-content;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  letter-spacing: 0.02em;
+}
 .rag-ref-body {
   flex: 1;
   min-width: 0;

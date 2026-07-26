@@ -15,10 +15,10 @@ const routes = [
     meta: { title: '登录' },
   },
   {
-    path: '/love',
-    name: 'LoveApp',
-    component: () => import('../views/LoveChat.vue'),
-    meta: { title: 'AI 恋爱大师', requiresAuth: true },
+    path: '/knowledge',
+    name: 'KnowledgeApp',
+    component: () => import('../views/KnowledgeChat.vue'),
+    meta: { title: '个人知识助手', requiresAuth: true },
   },
   {
     path: '/manus',

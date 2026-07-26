@@ -13,15 +13,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 恋爱大师知识库文档加载器
+ * 知识库文档加载器
  * 加载 classpath:document/*.md 文件，使用 MarkdownDocumentReader 解析为文档切片
  */
 @Slf4j
 @Component
-public class LoveAppDocumentLoader {
+public class KnowledgeAppDocumentLoader {
     private final ResourcePatternResolver resourcePatternResolver;
 
-    LoveAppDocumentLoader(ResourcePatternResolver resourcePatternResolver) {
+    KnowledgeAppDocumentLoader(ResourcePatternResolver resourcePatternResolver) {
         this.resourcePatternResolver = resourcePatternResolver;
     }
 

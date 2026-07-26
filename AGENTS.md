@@ -1,8 +1,3 @@
----
-name: ai-agent-rules
-description: AI Agent 项目的核心约束与架构指南。在为此项目生成代码、分析问题或回答问题前，必须先加载此技能。包含技术栈、包结构、代码风格、安全规范等完整指令。
----
-
 # AI-Agent 项目规则
 
 > 你正在处理 `ai-agent` 项目。以下指令**必须**遵守。
@@ -22,7 +17,7 @@ description: AI Agent 项目的核心约束与架构指南。在为此项目生�
 ```
 advisor/     → Spring AI Advisor 横切逻辑（日志、提示词优化）
 agent/       → Agent 核心（BaseAgent → ReActAgent → ToolCallAgent → Manus）
-app/         → 业务应用（LoveApp）
+app/         → 业务应用（KnowledgeApp）
 chatmemory/  → 聊天记忆（MongoChatMemory / FileBasedChatMemory）
 config/      → 全局配置（CORS, JWT, Auth, McpFallbackConfig）
 controller/  → REST 控制器（仅做转发，不含业务逻辑）
@@ -47,6 +42,7 @@ tool/        → Agent 工具（FileOperationTool）
 - ✅ Controller 只做转发，不含业务逻辑
 - ✅ 所有 public 方法写 Javadoc（纯文本格式，禁止使用 `<p>` `<ul>` `<li>` `<code>` 等 HTML 标签）
 - ✅ 日志用 SLF4J 占位符格式：`log.info("action={}", action)`
+- ✅ **保留原有注释和注释代码**：修改代码时，未涉及的注释、被注释掉的代码、Javadoc 必须原样保留，不得删除。只改动主题/功能相关的必要部分
 - ✅ 异常抛给 `GlobalExceptionHandler` 统一处理
 - ❌ 禁止硬编码敏感信息（API Key、密码、JWT Secret）
 - ❌ 禁止字段注入 `@Autowired`
@@ -55,7 +51,7 @@ tool/        → Agent 工具（FileOperationTool）
 - ✅ 必须使用 `<script setup>` + Composition API
 - ✅ 所有 API 调用通过 `src/api/request.js` 的 Axios 实例
 - ✅ 样式使用 `scoped`
-- ✅ 组件名大驼峰（`LoveChat.vue`）
+- ✅ 组件名大驼峰（`KnowledgeChat.vue`）
 - ✅ AI 的 Markdown 回复使用 `marked` + `DOMPurify` 渲染
 - ✅ 图标统一使用 SVG（禁止使用 emoji 作为 UI 图标 — ❌ `🗑️` `🚀` `⚙️`）
 

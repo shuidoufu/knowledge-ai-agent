@@ -12,13 +12,13 @@ import static org.springframework.ai.vectorstore.pgvector.PgVectorStore.PgDistan
 import static org.springframework.ai.vectorstore.pgvector.PgVectorStore.PgIndexType.HNSW;
 
 /**
- * 恋爱大师向量数据库配置(初始化 **PGVector** 向量数据库Bean)
+ * 知识库向量数据库配置（初始化 PGVector 向量数据库Bean）
  */
 @Configuration
 public class PgVectorVectorStoreConfig {
 
     @Resource
-    private LoveAppDocumentLoader loveAppDocumentLoader;
+    private KnowledgeAppDocumentLoader knowledgeAppDocumentLoader;
 
     // @Bean
     public VectorStore pgVectorVectorStore(JdbcTemplate jdbcTemplate, EmbeddingModel dashscopeEmbeddingModel) {
@@ -31,7 +31,7 @@ public class PgVectorVectorStoreConfig {
                 .vectorTableName("vector_store") // 引用 postgresql 中的知识库文档
                 .maxDocumentBatchSize(10000)
                 .build();
-        // vectorStore.add(loveAppDocumentLoader.loadMarkdowns()); // postgresql 中若无文档，可添加本地知识库文档
+        // vectorStore.add(knowledgeAppDocumentLoader.loadMarkdowns()); // postgresql 中若无文档，可添加本地知识库文档
         return vectorStore;
     }
 }

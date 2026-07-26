@@ -13,15 +13,15 @@ import org.springframework.stereotype.Component;
  * 创建自定义的 RAG 检索增强顾问的工厂
  */
 @Component
-public class LoveAppRagCustomAdvisorFactory {
+public class KnowledgeAppRagCustomAdvisorFactory {
 
     /**
-     *  * 创建一个自定义的 RAG 检索增强顾问（带过滤标签，直接过滤出指定的知识库文档，减少检索的文档数量）
+     * 创建一个自定义的 RAG 检索增强顾问（带过滤标签，直接过滤出指定的知识库文档）
      * @param vectorStore 向量存储
      * @param status 状态
      * @return 自定义的 RAG 检索增强顾问
      */
-    public static Advisor createLoveAppRagCustomAdvisorFactory(VectorStore vectorStore, String status){
+    public static Advisor createKnowledgeRagAdvisor(VectorStore vectorStore, String status){
         // 过滤特定状态的文档
         Filter.Expression expression = new FilterExpressionBuilder().eq("status", status).build();
         // 创建文档检索器

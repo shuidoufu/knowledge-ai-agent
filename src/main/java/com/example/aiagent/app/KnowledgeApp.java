@@ -5,7 +5,7 @@ import com.example.aiagent.advisor.DocCaptureAdvisor;
 import com.example.aiagent.advisor.MyLoggerAdvisor;
 import com.example.aiagent.chatmemory.MongoChatMemory;
 import com.example.aiagent.model.ChatMessages;
-import com.example.aiagent.rag.LoveAppRagCustomAdvisorFactory;
+import com.example.aiagent.rag.KnowledgeAppRagCustomAdvisorFactory;
 import com.example.aiagent.rag.QueryRewriter;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -36,16 +36,16 @@ import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvis
 
 @Component
 @Slf4j
-public class LoveApp {
+public class KnowledgeApp {
 
     private final ChatClient chatClient;
     // 构造函数注入系统提示词
     private final String SYSTEM_PROMPT;
     @Resource
     private ToolCallback[] allTools;
-    // AI 恋爱知识库问答功能（基于内存的RAG）
+    // 知识库向量存储（基于内存的RAG）
     @Resource
-    private VectorStore loveAppVectorStore;
+    private VectorStore knowledgeVectorStore;
     // 查询重写器
     @Resource
     private QueryRewriter queryRewriter;
@@ -58,7 +58,7 @@ public class LoveApp {
 
 
     // MongoChatMemory,构造器注入，因为@Resource属于属性注入，晚于构造器
-    public LoveApp(@Qualifier("openAiChatModel") ChatModel chatModel, MongoChatMemory mongoChatMemory, @Value("${love-advisor.system-prompt}") String SYSTEM_PROMPT) {
+    public KnowledgeApp(@Qualifier("openAiChatModel") ChatModel chatModel, MongoChatMemory mongoChatMemory, @Value("${knowledge-agent.system-prompt}") String SYSTEM_PROMPT) {
         // 注入提示词
         this.SYSTEM_PROMPT = SYSTEM_PROMPT;
 
@@ -105,7 +105,7 @@ public class LoveApp {
                 .user(message)
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                // .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
+                // .advisors(new QuestionAnswerAdvisor(knowledgeVectorStore))
                 .tools(allTools)
                 .stream()
                 .content();
@@ -115,11 +115,24 @@ public class LoveApp {
      * 带引用标注的 RAG 流式对话
      * AI 回复中会用 [1]、[2] 标注引用来源
      * 流结束后追加引用切片信息，前端可解析展示
+     * 通过 LLM 智能判断是否需要检索知识库
      */
     public Flux<String> doChatByStreamWithRag(String message, String chatId) {
-        // 查询重写
-        String rewriteMessage = queryRewriter.doQueryRewrite(message);
-        log.info("查询重写: {} -> {}", message, rewriteMessage);
+        // 智能分析：判断是否需要检索 + 查询改写（一次LLM调用完成）
+        QueryRewriter.QueryAnalysis analysis = queryRewriter.analyze(message);
+        log.info("查询分析: needsRetrieval={}, rewrittenQuery={}", analysis.needsRetrieval(), analysis.rewrittenQuery());
+
+        // 不需要检索知识库：直接走普通流式对话
+        if (!analysis.needsRetrieval()) {
+            log.info("智能判断为无需检索知识库: message={}", message);
+            return doChatByStream(message, chatId);
+        }
+
+        // 需要检索：使用改写后的查询进行 RAG 流式对话
+        String rewriteMessage = analysis.rewrittenQuery();
+        if (rewriteMessage == null || rewriteMessage.isBlank()) {
+            rewriteMessage = message;
+        }
 
         // 文档捕获 Advisor
         DocCaptureAdvisor docCaptureAdvisor = new DocCaptureAdvisor();
@@ -127,7 +140,8 @@ public class LoveApp {
         // 引用标注指令：追加到系统提示词中
         String citationInstruction = "\n\n【引用规范】当你引用知识库中的内容时，"
                 + "请在引用内容的结尾处标注来源编号，格式为 [1]、[2] 等。"
-                + "例如：根据恋爱心理学研究，沟通是维系关系的关键[1]。";
+                + "例如：根据你整理的笔记，知识管理的核心在于持续积累与分类[1]。"
+                + "注意：只有问题涉及知识库相关内容时才引用，日常问候或无关问题无需引用。";
 
         Flux<String> contentFlux = chatClient
                 .prompt()
@@ -135,7 +149,7 @@ public class LoveApp {
                 .system(s -> s.text(SYSTEM_PROMPT + citationInstruction))
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                .advisors(new QuestionAnswerAdvisor(loveAppVectorStore), docCaptureAdvisor)
+                .advisors(new QuestionAnswerAdvisor(knowledgeVectorStore), docCaptureAdvisor)
                 .tools(allTools)
                 .stream()
                 .content();
@@ -177,33 +191,33 @@ public class LoveApp {
     }
 
     /**
-     * LoveRecord 是一个记录爱情建议的记录类(Record)
-     * 这个类用于存储一个爱情报告的标题和相关建议列表
+     * KnowledgeReport 是一个记录知识总结的记录类(Record)
+     * 用于存储知识回答的标题和相关摘要列表
      *
      * @param title       报告的标题，类型为String
-     * @param suggestions 爱情建议列表，类型为List<String>
+     * @param suggestions 知识摘要列表，类型为List<String>
      */
-    record LoveReport(String title, List<String> suggestions) {
+    record KnowledgeReport(String title, List<String> suggestions) {
 
     }
 
     /**
-     * AI 报告功能（结构化输出）
+     * AI 知识总结功能（结构化输出）
      *
      * @param message
      * @param chatId
      * @return
      */
-    public LoveReport doChatWithReport(String message, String chatId) {
-        LoveReport response = chatClient
+    public KnowledgeReport doChatWithReport(String message, String chatId) {
+        KnowledgeReport response = chatClient
                 .prompt()
-                .system(SYSTEM_PROMPT + "每次对话后都要生成恋爱结果，标题为{用户名}的恋爱报告，内容为建议列表")
+                .system(SYSTEM_PROMPT + "每次对话后都要生成知识总结，标题为{用户名}的知识报告，内容为要点列表")
                 .user(message)
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                 .call()
-                .entity(LoveReport.class);
-        log.info("LoveReport: {}", response);
+                .entity(KnowledgeReport.class);
+        log.info("KnowledgeReport: {}", response);
         return response;
     }
 
@@ -217,8 +231,10 @@ public class LoveApp {
     // @Autowired
     // private VectorStore pgVectorVectorStore;
     public String doChatWithRag(String message, String chatId) {
-        // 查询重写
-        String rewriteMessage = queryRewriter.doQueryRewrite(message);
+        // 查询分析（重写）
+        QueryRewriter.QueryAnalysis analysis = queryRewriter.analyze(message);
+        String rewriteMessage = (analysis.rewrittenQuery() != null && !analysis.rewrittenQuery().isBlank())
+                ? analysis.rewrittenQuery() : message;
 
         ChatResponse chatResponse = chatClient
                 .prompt()
@@ -227,13 +243,13 @@ public class LoveApp {
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                 // 应用 RAG 知识库问答（基于 本地内存 向量数据库）
-                // .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
+                // .advisors(new QuestionAnswerAdvisor(knowledgeVectorStore))
                 // 应用 RAG 检索增强服务（基于 PGVector 向量存储）
                 // .advisors(new QuestionAnswerAdvisor(pgVectorVectorStore))
                 // 带有标签过滤的 RAG 增强服务
                 .advisors(
-                        LoveAppRagCustomAdvisorFactory.createLoveAppRagCustomAdvisorFactory(
-                                loveAppVectorStore, "已婚"
+                        KnowledgeAppRagCustomAdvisorFactory.createKnowledgeRagAdvisor(
+                                knowledgeVectorStore, "知识库"
                         )
                 )
                 .call()
@@ -244,7 +260,7 @@ public class LoveApp {
     }
 
     /**
-     * AI 恋爱报告功能（支持调用工具）
+     * AI 工具对话功能（支持调用工具）
      */
     public String doChatWithTool(String message, String chatId) {
         ChatResponse chatResponse = chatClient
@@ -263,7 +279,7 @@ public class LoveApp {
     }
 
     /**
-     * AI 恋爱报告功能（调用MCP服务）
+     * AI 对话功能（调用MCP服务）
      */
     public String doChatWithMcp(String message, String chatId) {
         ChatResponse chatResponse = chatClient

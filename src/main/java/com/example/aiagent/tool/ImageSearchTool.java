@@ -53,7 +53,7 @@ public class ImageSearchTool {
      */
     @Tool(description = "Search images on the web. Returns image URLs, titles and source pages.")
     public String searchImages(
-            @ToolParam(description = "Search query for images (e.g. 'cat', 'beach sunset', 'romantic dinner')") String query,
+            @ToolParam(description = "Search query for images (e.g. 'cat', 'beach sunset', 'city skyline')") String query,
             @ToolParam(description = "Number of image results to return (1-20, default 10)") int count) {
 
         if (StrUtil.isBlank(query)) {

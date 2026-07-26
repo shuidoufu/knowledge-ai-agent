@@ -2,9 +2,9 @@
   <div class="chat-page">
     <header class="chat-header">
       <router-link to="/" class="back">
-        <svg viewBox="0 0 24 24" fill="none" class="icon"><path d="M19 12H5m7-7l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        返回
-      </router-link>
+	        <ArrowLeft class="icon" size="16" />
+	        返回
+	      </router-link>
       <h1>AI 超级智能体</h1>
     </header>
     <div class="messages" ref="messagesRef">
@@ -20,20 +20,20 @@
           <template v-if="msg.role === 'assistant'">
             <div class="robot-avatar">
               <svg viewBox="0 0 48 48" fill="none" class="robot-svg">
-                <line x1="24" y1="4" x2="24" y2="12" stroke="url(#robotGrad)" stroke-width="2.5" stroke-linecap="round" class="antenna"/>
-                <circle cx="24" cy="3" r="2.5" fill="#6366f1" class="antenna-dot"/>
-                <rect x="10" y="12" width="28" height="20" rx="6" stroke="url(#robotGrad)" stroke-width="2" fill="rgba(99,102,241,0.08)"/>
-                <circle cx="19" cy="22" r="3.5" fill="#6366f1" class="eye eye-left"/>
-                <circle cx="29" cy="22" r="3.5" fill="#6366f1" class="eye eye-right"/>
-                <line x1="18" y1="28" x2="30" y2="28" stroke="#818cf8" stroke-width="1.8" stroke-linecap="round" class="mouth"/>
-                <rect x="14" y="32" width="20" height="10" rx="3" stroke="url(#robotGrad)" stroke-width="1.5" fill="rgba(99,102,241,0.04)"/>
-                <circle cx="24" cy="37" r="1.5" fill="#818cf8" class="body-dot"/>
-                <defs>
-                  <linearGradient id="robotGrad" x1="0" y1="0" x2="48" y2="48">
-                    <stop offset="0%" stop-color="#6366f1"/>
-                    <stop offset="100%" stop-color="#818cf8"/>
-                  </linearGradient>
-                </defs>
+	                <line x1="24" y1="4" x2="24" y2="12" stroke="url(#robotGrad)" stroke-width="2.5" stroke-linecap="round" class="antenna"/>
+	                <circle cx="24" cy="3" r="2.5" fill="#93C5FD" class="antenna-dot"/>
+	                <rect x="10" y="12" width="28" height="20" rx="6" stroke="url(#robotGrad)" stroke-width="2" fill="rgba(147,197,253,0.1)"/>
+	                <circle cx="19" cy="22" r="3.5" fill="#93C5FD" class="eye eye-left"/>
+	                <circle cx="29" cy="22" r="3.5" fill="#93C5FD" class="eye eye-right"/>
+	                <line x1="18" y1="28" x2="30" y2="28" stroke="#BFDBFE" stroke-width="1.8" stroke-linecap="round" class="mouth"/>
+	                <rect x="14" y="32" width="20" height="10" rx="3" stroke="url(#robotGrad)" stroke-width="1.5" fill="rgba(147,197,253,0.06)"/>
+	                <circle cx="24" cy="37" r="1.5" fill="#BFDBFE" class="body-dot"/>
+	                <defs>
+	                  <linearGradient id="robotGrad" x1="0" y1="0" x2="48" y2="48">
+	                    <stop offset="0%" stop-color="#93C5FD"/>
+	                    <stop offset="100%" stop-color="#DBEAFE"/>
+	                  </linearGradient>
+	                </defs>
               </svg>
             </div>
           </template>
@@ -57,22 +57,22 @@
         @keydown.enter.exact.prevent="send"
       />
       <button class="send-btn" :class="{ 'stop-btn': loading }" :disabled="loading ? false : !inputText.trim()" @click="loading ? stopStream() : send()">
-        <template v-if="loading">
-          <svg viewBox="0 0 24 24" fill="none" class="btn-icon"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
-          终止
-        </template>
-        <template v-else>
-          <svg viewBox="0 0 24 24" fill="none" class="btn-icon"><path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          发送
-        </template>
-      </button>
+	        <template v-if="loading">
+	          <Square class="btn-icon" size="18" />
+	          终止
+	        </template>
+	        <template v-else>
+	          <ArrowRight class="btn-icon" size="18" />
+	          发送
+	        </template>
+	      </button>
     </div>
     <!-- 图片预览弹窗 -->
     <Teleport to="body">
       <div v-if="previewImage.show" class="image-preview-overlay" @click.self="closePreview">
         <button class="image-preview-close" @click="closePreview" title="关闭">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
+	          <X size="22" />
+	        </button>
         <img :src="previewImage.src" :alt="previewImage.alt" class="image-preview-img" @click.self="closePreview" />
       </div>
     </Teleport>
@@ -85,6 +85,7 @@ import { streamManusChat } from '../api/request'
 import { username as reactiveUsername } from '../utils/auth'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
+import { ArrowLeft, ArrowRight, Square, X } from '@lucide/vue'
 
 const messages = ref([])
 const inputText = ref('')
@@ -211,48 +212,50 @@ onUnmounted(() => {
   color: #1e293b;
 }
 .chat-header {
-  flex-shrink: 0;
-  padding: 0 1.25rem;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  background: rgba(255,255,255,0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255,255,255,0.3);
-  box-shadow: 0 1px 4px rgba(99,102,241,0.06);
-}
-.back {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: #6366f1;
-  text-decoration: none;
-  font-size: 0.85rem;
-  font-weight: 500;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: rgba(99,102,241,0.08);
-  border: 1px solid rgba(255,255,255,0.3);
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-}
-.back .icon {
-  width: 16px;
-  height: 16px;
-}
-.back:hover {
-  background: rgba(99,102,241,0.15);
-  color: #4f46e5;
-  box-shadow: 0 2px 8px rgba(99,102,241,0.1);
-}
+	  flex-shrink: 0;
+	  padding: 0 1.25rem;
+	  height: 60px;
+	  display: flex;
+	  align-items: center;
+	  gap: 1rem;
+	  background: rgba(255,255,255,0.6);
+	  backdrop-filter: blur(16px);
+	  -webkit-backdrop-filter: blur(16px);
+	  border-bottom: 1px solid rgba(255,255,255,0.3);
+	  box-shadow:
+	    0 1px 4px rgba(16,185,129,0.06),
+	    0 0 0 1px rgba(255,255,255,0.4) inset;
+	}
+	.back {
+	  display: flex;
+	  align-items: center;
+	  gap: 4px;
+	  color: #10B981;
+	  text-decoration: none;
+	  font-size: 0.85rem;
+	  font-weight: 500;
+	  padding: 6px 14px;
+	  border-radius: 999px;
+	  background: rgba(16,185,129,0.08);
+	  border: 1px solid rgba(255,255,255,0.3);
+	  white-space: nowrap;
+	  flex-shrink: 0;
+	  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+	}
+	.back .icon {
+	  width: 16px;
+	  height: 16px;
+	}
+	.back:hover {
+	  background: rgba(16,185,129,0.15);
+	  color: #059669;
+	  box-shadow: 0 2px 8px rgba(16,185,129,0.1);
+	}
 .chat-header h1 {
   font-size: 1.1rem;
   flex: 1;
   font-weight: 600;
-  color: #1e1b4b;
+  color: #065F46;
 }
 .messages {
   flex: 1;
@@ -360,12 +363,12 @@ onUnmounted(() => {
   background: transparent;
 }
 .chat-user-letter {
-  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #6366f1;
-  text-shadow: 0 0 8px rgba(99,102,241,0.2);
-}
+	  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+	  font-size: 0.9rem;
+	  font-weight: 700;
+	  color: #10B981;
+	  text-shadow: 0 0 8px rgba(16,185,129,0.2);
+	}
 .bubble-content {
   padding: 1rem 1.5rem;
   border-radius: 14px;
@@ -379,11 +382,11 @@ onUnmounted(() => {
   line-height: 1.8;
 }
 .message-row.user .bubble-content {
-  width: fit-content;
-  max-width: min(85%, 65ch);
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  color: #fff;
-}
+	  width: fit-content;
+	  max-width: min(85%, 65ch);
+	  background: linear-gradient(135deg, #34D399, #10B981);
+	  color: #fff;
+	}
 .message-row.assistant .bubble-content {
   min-width: 12em;
   max-width: min(85%, 65ch);
@@ -416,14 +419,14 @@ onUnmounted(() => {
   line-height: 1.7;
 }
 .markdown-body :deep(ol > li::before) {
-  content: counter(li-counter) ".";
-  position: absolute;
-  left: -1.8em;
-  width: 1.5em;
-  text-align: right;
-  color: #3b82f6;
-  font-weight: 600;
-}
+	  content: counter(li-counter) ".";
+	  position: absolute;
+	  left: -1.8em;
+	  width: 1.5em;
+	  text-align: right;
+	  color: #10B981;
+	  font-weight: 600;
+	}
 .markdown-body :deep(ul) {
   margin-bottom: 0.8em;
   padding-left: 1.5em;
@@ -438,15 +441,15 @@ onUnmounted(() => {
   padding-left: 0.5em;
 }
 .markdown-body :deep(ul > li::before) {
-  content: '';
-  position: absolute;
-  left: -1.2em;
-  top: 0.65em;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #93c5fd;
-}
+	  content: '';
+	  position: absolute;
+	  left: -1.2em;
+	  top: 0.65em;
+	  width: 6px;
+	  height: 6px;
+	  border-radius: 50%;
+	  background: #6EE7B7;
+	}
 .markdown-body :deep(ul ul), .markdown-body :deep(ol ul),
 .markdown-body :deep(ul ol), .markdown-body :deep(ol ol) {
   margin-top: 0.4em;
@@ -461,13 +464,13 @@ onUnmounted(() => {
   color: #0f172a;
 }
 .markdown-body :deep(h3) {
-  padding-left: 12px;
-  border-left: 3px solid #3b82f6;
-}
-.markdown-body :deep(h4) {
-  color: #2563eb;
-  font-size: 1em;
-}
+	  padding-left: 12px;
+	  border-left: 3px solid #10B981;
+	}
+	.markdown-body :deep(h4) {
+	  color: #059669;
+	  font-size: 1em;
+	}
 .markdown-body :deep(h1:first-child), .markdown-body :deep(h2:first-child),
 .markdown-body :deep(h3:first-child) {
   margin-top: 0;
@@ -477,14 +480,14 @@ onUnmounted(() => {
   font-weight: 600;
 }
 .markdown-body :deep(blockquote) {
-  margin: 1em 0;
-  padding: 0.8em 1.2em;
-  border-left: 3px solid #93c5fd;
-  background: rgba(59,130,246,0.04);
-  border-radius: 0 8px 8px 0;
-  color: #475569;
-  line-height: 1.7;
-}
+	  margin: 1em 0;
+	  padding: 0.8em 1.2em;
+	  border-left: 3px solid #6EE7B7;
+	  background: rgba(16,185,129,0.04);
+	  border-radius: 0 8px 8px 0;
+	  color: #475569;
+	  line-height: 1.7;
+	}
 .markdown-body :deep(blockquote p) {
   margin-bottom: 0.4em;
 }
@@ -492,19 +495,19 @@ onUnmounted(() => {
   margin-bottom: 0;
 }
 .markdown-body :deep(hr) {
-  margin: 1.2em 0;
-  border: none;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #bfdbfe, transparent);
-}
+	  margin: 1.2em 0;
+	  border: none;
+	  height: 1px;
+	  background: linear-gradient(90deg, transparent, #A7F3D0, transparent);
+	}
 .markdown-body :deep(code) {
-  background: #f1f5f9;
-  padding: 0.2em 0.4em;
-  border-radius: 4px;
-  font-family: 'Cascadia Code', 'Fira Code', monospace;
-  font-size: 0.9em;
-  color: #3b82f6;
-}
+	  background: #f1f5f9;
+	  padding: 0.2em 0.4em;
+	  border-radius: 4px;
+	  font-family: 'Cascadia Code', 'Fira Code', monospace;
+	  font-size: 0.9em;
+	  color: #10B981;
+	}
 .markdown-body :deep(pre) {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -519,23 +522,26 @@ onUnmounted(() => {
   color: #1e293b;
 }
 .markdown-body :deep(a) {
-  color: #3b82f6;
-  text-decoration: underline;
-}
+	  color: #10B981;
+	  text-decoration: underline;
+	}
 .input-area {
-  flex-shrink: 0;
-  padding: 1rem;
-  border-top: 1px solid rgba(255,255,255,0.3);
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-end;
-  background: rgba(255,255,255,0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
-}
+	  flex-shrink: 0;
+	  padding: 1rem;
+	  border-top: 1px solid rgba(255,255,255,0.3);
+	  display: flex;
+	  gap: 0.75rem;
+	  align-items: flex-end;
+	  background: rgba(255,255,255,0.6);
+	  backdrop-filter: blur(16px);
+	  -webkit-backdrop-filter: blur(16px);
+	  box-shadow:
+	    0 -4px 16px rgba(16,185,129,0.04),
+	    0 0 0 1px rgba(255,255,255,0.4) inset;
+	  position: sticky;
+	  bottom: 0;
+	  z-index: 10;
+	}
 .input-area textarea {
   flex: 1;
   min-height: 44px;
@@ -550,32 +556,35 @@ onUnmounted(() => {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .input-area textarea:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
+	  outline: none;
+	  border-color: #34D399;
+	  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.1);
+	}
 .send-btn {
-  padding: 0 28px;
-  border-radius: 12px;
-  border: none;
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  color: #fff;
-  font-weight: 600;
-  height: 44px;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 14px rgba(99,102,241,0.3);
-}
+	  display: flex;
+	  align-items: center;
+	  gap: 6px;
+	  padding: 0 28px;
+	  border-radius: 12px;
+	  border: none;
+	  background: linear-gradient(135deg, #34D399, #10B981);
+	  color: #fff;
+	  font-weight: 600;
+	  height: 44px;
+	  letter-spacing: 0.02em;
+	  cursor: pointer;
+	  transition: all 0.2s ease;
+	  box-shadow: 0 4px 14px rgba(52,211,153,0.3);
+	}
 .send-btn:hover:not(:disabled) {
-  opacity: 0.95;
-  box-shadow: 0 6px 24px rgba(99,102,241,0.4);
-  transform: translateY(-1px);
-}
-.send-btn:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
-}
+	  opacity: 0.95;
+	  box-shadow: 0 6px 24px rgba(52,211,153,0.4);
+	  transform: translateY(-1px);
+	}
+	.send-btn:active:not(:disabled) {
+	  transform: translateY(0);
+	  box-shadow: 0 2px 8px rgba(52,211,153,0.3);
+	}
 .send-btn:disabled {
   background: #cbd5e1;
   cursor: not-allowed;
