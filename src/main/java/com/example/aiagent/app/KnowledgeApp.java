@@ -17,6 +17,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -118,6 +119,11 @@ public class KnowledgeApp {
      * 通过 LLM 智能判断是否需要检索知识库
      */
     public Flux<String> doChatByStreamWithRag(String message, String chatId) {
+        // RAG向量数据库检索设置
+        QuestionAnswerAdvisor ragAdvisor = QuestionAnswerAdvisor.builder(this.knowledgeVectorStore)
+                .searchRequest(SearchRequest.builder().similarityThreshold(0.6d).topK(3).build())
+                .build();
+
         // 智能分析：判断是否需要检索 + 查询改写（一次LLM调用完成）
         QueryRewriter.QueryAnalysis analysis = queryRewriter.analyze(message);
         log.info("查询分析: needsRetrieval={}, rewrittenQuery={}", analysis.needsRetrieval(), analysis.rewrittenQuery());
@@ -150,7 +156,7 @@ public class KnowledgeApp {
                 .system(s -> s.text(SYSTEM_PROMPT + citationInstruction))
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                .advisors(new QuestionAnswerAdvisor(knowledgeVectorStore), docCaptureAdvisor)
+                .advisors(ragAdvisor, docCaptureAdvisor)
                 .tools(allTools)
                 .stream()
                 .content();
