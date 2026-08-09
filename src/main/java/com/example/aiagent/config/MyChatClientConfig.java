@@ -1,6 +1,7 @@
 package com.example.aiagent.config;
 
 
+import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
 import com.example.aiagent.advisor.MyLoggerAdvisor;
 import com.example.aiagent.chatmemory.MongoChatMemory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -27,7 +28,7 @@ public class MyChatClientConfig {
      * @param SYSTEM_PROMPT   系统提示信息，通过@Value注解从配置文件中获取
      * @return 配置好的ChatClient实例
      */
-    @Bean  // 此注解被注释掉，表示当前方法不会作为Bean被Spring容器管理
+    @Bean
     public ChatClient chatClient(@Qualifier("openAiChatModel") ChatModel chatModel, MyLoggerAdvisor myLoggerAdvisor, MongoChatMemory mongoChatMemory, @Value("${knowledge-agent.system-prompt}") String SYSTEM_PROMPT) {
 
         // 使用建造者模式创建ChatClient实例
@@ -36,6 +37,26 @@ public class MyChatClientConfig {
                 .defaultSystem(SYSTEM_PROMPT)
                 .defaultAdvisors(myLoggerAdvisor, new MessageChatMemoryAdvisor(mongoChatMemory))
                 .build();
+
+    }
+
+    /**
+     * 创建并配置DashScopeChatModel Bean 千问模型
+     * @param dashscopeChatModel
+     * @param myLoggerAdvisor
+     * @param mongoChatMemory
+     * @param SYSTEM_PROMPT
+     * @return
+     */
+    @Bean
+    public ChatClient chatClientQwen(@Qualifier("dashscopeChatModel") DashScopeChatModel dashscopeChatModel, MyLoggerAdvisor myLoggerAdvisor, MongoChatMemory mongoChatMemory, @Value("${knowledge-agent.system-prompt}") String SYSTEM_PROMPT) {
+
+        // 使用建造者模式创建ChatClient实例
+        // 设置聊天模型和默认的拦截器
+        return ChatClient.builder(dashscopeChatModel)
+                .defaultSystem(SYSTEM_PROMPT)  // 设置系统提示词
+                .defaultAdvisors(myLoggerAdvisor, new MessageChatMemoryAdvisor(mongoChatMemory))  // 添加日志和记忆拦截器
+                .build();  // 构建并返回ChatClient实例
 
     }
 }
