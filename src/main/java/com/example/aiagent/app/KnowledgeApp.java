@@ -120,8 +120,9 @@ public class KnowledgeApp {
      */
     public Flux<String> doChatByStreamWithRag(String message, String chatId) {
         // RAG向量数据库检索设置
+        // 相似度阈值 0.5：中文长文本余弦相似度普遍偏低，0.6 会过滤掉本应命中的相关切片
         QuestionAnswerAdvisor ragAdvisor = QuestionAnswerAdvisor.builder(this.knowledgeVectorStore)
-                .searchRequest(SearchRequest.builder().similarityThreshold(0.6d).topK(3).build())
+                .searchRequest(SearchRequest.builder().similarityThreshold(0.5d).topK(3).build())
                 .build();
 
         // 智能分析：判断是否需要检索 + 查询改写（一次LLM调用完成）
