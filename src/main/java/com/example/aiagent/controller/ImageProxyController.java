@@ -1,7 +1,7 @@
 package com.example.aiagent.controller;
 
-import cn.hutool.http.HttpRequest;
-import cn.hutool.http.HttpResponse;
+import com.example.aiagent.service.ImageProxyService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -12,18 +12,20 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 图片代理接口
- * 后端下载原始图片并返回，** 携带完整浏览器请求头绕过防盗链 **
- * 前端 Markdown 中的图片 URL 可通过此接口代理加载。
+ * 通过 ImageProxyService 下载原始图片并返回（携带完整浏览器请求头绕过防盗链）
+ * 前端 Markdown 中的图片 URL 可通过此接口代理加载
  */
 @Slf4j
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/image-proxy")
 public class ImageProxyController {
 
-    private static final int TIMEOUT_MILLIS = 15000;
+    private final ImageProxyService imageProxyService;
 
     /**
      * 代理下载图片
+     *
      * @param url 原始图片 URL
      * @return 图片字节流
      */
@@ -33,44 +35,27 @@ public class ImageProxyController {
             return ResponseEntity.badRequest().build();
         }
 
-        try {
-            HttpResponse response = HttpRequest.get(url)
-                    .setFollowRedirects(true)
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-                            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    .header("Referer", "https://www.bing.com/")
-                    .header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-                    .timeout(TIMEOUT_MILLIS)
-                    .execute();
-
-            if (response.getStatus() != 200) {
-                log.warn("Image proxy failed: {} status {}", url, response.getStatus());
-                return ResponseEntity.status(response.getStatus()).build();
-            }
-
-            byte[] body = response.bodyBytes();
-            if (body == null || body.length == 0) {
-                return ResponseEntity.noContent().build();
-            }
-
-            // 根据响应头判断图片类型
-            String contentType = response.header("Content-Type");
-            MediaType mediaType = MediaType.IMAGE_JPEG;
-            if (contentType != null) {
-                try {
-                    mediaType = MediaType.parseMediaType(contentType);
-                } catch (Exception e) {
-                    // 默认 JPEG
-                }
-            }
-
-            return ResponseEntity.ok()
-                    .contentType(mediaType)
-                    .body(body);
-
-        } catch (Exception e) {
-            log.warn("Image proxy error: {} - {}", url, e.getMessage());
+        // 前端展示路径使用单次尝试，避免多策略重试的叠加延迟
+        ImageProxyService.ImageFetchResult result = imageProxyService.fetchOnce(url);
+        if (result == null) {
+            log.warn("Image proxy failed: {}", url);
             return ResponseEntity.status(502).build();
         }
+
+        // 根据图片格式设置响应类型
+        MediaType mediaType = switch (result.format()) {
+            case "png" -> MediaType.IMAGE_PNG;
+            case "gif" -> MediaType.IMAGE_GIF;
+            case "webp" -> MediaType.parseMediaType("image/webp");
+            case "bmp" -> MediaType.parseMediaType("image/bmp");
+            case "svg" -> MediaType.parseMediaType("image/svg+xml");
+            case "avif" -> MediaType.parseMediaType("image/avif");
+            default -> MediaType.IMAGE_JPEG;
+        };
+
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .body(result.bytes());
     }
+
 }

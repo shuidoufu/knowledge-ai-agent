@@ -22,8 +22,7 @@ import java.util.Objects;
 
 /**
  * 基于 MongoDB 的自研向量数据库实现
- * 文档与向量持久化到 MongoDB 集合（结构：_id、content、metadata、embedding），
- * 检索时在应用层计算余弦相似度排序（不依赖 Atlas Search 的 $vectorSearch，兼容 MongoDB 社区版）
+ * 文档与向量持久化到 MongoDB 集合（结构：_id、content、metadata、embedding），检索在应用层计算余弦相似度排序
  */
 @Slf4j
 public class MongoVectorStore implements VectorStore {
@@ -50,7 +49,7 @@ public class MongoVectorStore implements VectorStore {
     /** embedding 字段路径 */
     private final String pathName;
 
-    /** 向量化分批策略（兼容 DashScope 单次 25 条上限） */
+    /** 向量化分批策略 */
     private final BatchingStrategy batchingStrategy;
 
     /**
@@ -81,7 +80,7 @@ public class MongoVectorStore implements VectorStore {
         if (documents == null || documents.isEmpty()) {
             return;
         }
-        // 批量向量化（按分批策略拆批，保证与 DashScope 单次 25 条上限兼容）
+        // 批量向量化（按分批策略拆批）
         List<float[]> embeddings = this.embeddingModel.embed(documents,
                 EmbeddingOptionsBuilder.builder().build(), this.batchingStrategy);
         for (int i = 0; i < documents.size(); i++) {
@@ -129,7 +128,6 @@ public class MongoVectorStore implements VectorStore {
 
     /**
      * 相似度检索：应用层加载全部文档向量，计算余弦相似度，按阈值过滤并取 topK
-     * 当前知识库数据量小（数百切片），全量计算毫秒级完成；数据量增大后可升级为 $vectorSearch 或索引方案
      *
      * @param request 检索请求（含查询、topK、相似度阈值、过滤表达式）
      * @return 按相似度降序排列的文档列表
@@ -216,7 +214,7 @@ public class MongoVectorStore implements VectorStore {
     }
 
     /**
-     * 将存储的 MongoDB 文档转换为 Spring AI Document（附带 score 与 distance 元数据，与官方实现一致）
+     * 将存储的 MongoDB 文档转换为 Spring AI Document（附带 score 与 distance 元数据）
      *
      * @param scoredDocument 带相似度得分的存储文档
      * @return Spring AI Document

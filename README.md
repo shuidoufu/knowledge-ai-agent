@@ -10,12 +10,14 @@
 |------|------|
 | 🤖 **AI 超级智能体** | ReAct 模式 Agent，支持多步推理和工具调用（文件操作、网页搜索、PDF 生成、资源下载等） |
 | 🧠 **个人知识助手** | 多源知识融合问答，基于 RAG 检索笔记与收藏，支持流式对话、引用标注和切片展示 |
-| 📚 **RAG 知识库 + 引用标注** | SimpleVectorStore 内存向量库，AI 回复标注来源编号 `[1]`、`[2]`，展开查看原文切片 |
+| 📚 **RAG 知识库 + 引用标注** | MongoDB 向量库（自研 MongoVectorStore，应用层余弦检索），AI 回复标注来源编号 `[1]`、`[2]`，展开查看原文切片 |
 | 🔄 **引用持久化** | 引用数据随消息持久化到 MongoDB，刷新页面不丢失 |
-| 🧠 **双模型架构** | 对话使用 DeepSeek V4 Flash【@Qualifier("openAiChatModel") ChatModel chatModel】，向量化使用千问 Qwen-Plus（DashScope）【ChatModel dashScopeChatModel】 |
+| 🧠 **双模型架构** | 对话使用 DeepSeek V4 Flash【@Qualifier("openAiChatModel") ChatModel chatModel】，向量化使用千问 Qwen-Plus（DashScope）【@Qualifier("dashscopeEmbeddingModel") EmbeddingModel】 |
 | 💬 **聊天记忆** | MongoDB 持久化聊天记录，支持历史会话管理和知识库检索开关 |
-| 🖼 **图片搜索与展示** | 联网图片搜索，后端代理加载绕过防盗链，前端聊天内直接显示，无白边 |
-| 📄 **PDF 含图生成** | PDF 支持嵌入图片（Markdown 图片语法），多策略下载原图，统一缩放 |
+| 🖼 **图片搜索与展示** | 联网图片搜索，统一图片代理服务（ImageProxyService）绕过防盗链，前端聊天内直接显示；硬防盗链素材站黑名单过滤 |
+| 📄 **PDF 含图生成** | PDF 支持嵌入图片（Markdown 图片语法），图片下载走图片代理服务（多策略 Referer），统一缩放 |
+| 🔗 **工作流引擎** | SPEL 表达式驱动的多步骤工具编排，支持预设工作流（pdf_report、image_album），由 LLM 根据场景自动触发 |
+| 🛡 **统一异常降级** | 基于 AOP 注解的统一降级框架，支持重试、缓存、跳过、通知、备选五种降级策略 |
 | 🔒 **登录鉴权** | JWT Token 认证，支持注册/登录/密码修改，注册含图片验证码校验；启动时随机生成密钥，重启后旧 token 自动失效 |
 | 🎨 **现代化 UI** | 翠绿主题玻璃拟态风格，Lucide 统一图标库，流式 Markdown 渲染，RAG 来源知识卡片，移动端自适应，密码显示/隐藏切换 |
 
@@ -31,11 +33,12 @@
 | Spring Boot | 3.5.10 | 应用框架 |
 | Spring AI | 1.0.0-M6 | AI 模型统一调用（OpenAI 兼容接口 + DashScope） |
 | DashScope SDK | 2.18.5 | 阿里云百炼（向量化模型） |
-| MongoDB | - | 聊天记忆存储 |
+| MongoDB | - | 聊天记忆 + 向量库（自研 MongoVectorStore，集合 `vector_store`） |
 | JWT (jjwt) | 0.12.6 | 登录鉴权（启动时随机生成签名密钥） |
 | iText Core + font-asian | 9.1.0 | PDF 生成（嵌入微软雅黑中文字体） |
 | jsoup | 1.19.1 | 网页抓取 |
 | Hutool | 5.8.5 | Java 工具库 |
+| Spring AOP | - | 统一降级注解（@Degradable） |
 | Knife4j | 4.4.0 | API 文档 |
 
 ### 前端
@@ -82,12 +85,12 @@ npm install
 npm run dev
 ```
 
-### 2️⃣ 启动虚拟机前后端
+### 3️⃣ 启动虚拟机前后端
 1. 后端进行jar打包，上传至虚拟机中
 2. 前端进行npm run build，将dist文件上传至虚拟机中
 
 
-### 3️⃣ 访问
+### 4️⃣ 访问
 
 | 服务 | 地址 |
 |------|------|
@@ -115,12 +118,13 @@ ai-agent/
 │   ├── chatmemory/        # 聊天记忆（MongoDB / 文件）
 │   ├── config/            # 全局配置（CORS, JWT, MCP 后备）
 │   ├── controller/        # REST 接口
+│   ├── degradation/       # 统一降级框架（@Degradable 注解 + AOP 切面，五种降级策略）
 │   ├── filter/            # JWT 鉴权过滤器
 │   ├── model/             # 数据模型（含 RAG 引用标注字段）
-│   ├── rag/               # RAG 检索增强（本地/PG 向量存储、文档加载、查询重写、元信息增强），PgVectorStoreConfig（基于 PGVector 向量数据库）
+│   ├── rag/               # RAG 检索增强（MongoDB 向量库 MongoVectorStore、文档加载、查询重写、检索优化），MongoVectorStoreConfig（基于 MongoDB）
 │   ├── repository/        # 数据访问层
-│   ├── service/           # 业务逻辑（含 AuthService、CaptchaService 验证码服务、UserService）
-│   └── tool/              # Agent 工具（文件操作、PDF生成、百度联网搜索、图片搜索等）
+│   ├── service/           # 业务逻辑（AuthService、CaptchaService、ImageProxyService 图片代理服务）
+│   └── tool/              # Agent 工具（文件操作、PDF生成、图片搜索、工作流 WorkflowEngine/WorkflowTool 等）
 ├── frontend/
 │   └── src/
 │       ├── api/           # API 请求封装（含 RAG 流式接口）
@@ -129,7 +133,7 @@ ai-agent/
 │       └── views/         # 页面（登录、首页、个人知识助手、超级智能体）
 ├── src/main/resources/
 │   ├── application.yml    # 主配置（需自行填入 API Key）
-│   ├── prompt.yaml        # AI 系统提示词
+│   ├── prompt.yml        # AI 系统提示词
 │   └── document/          # RAG 知识文档（Markdown 格式）
 └── pom.xml                # Maven 依赖
 ```
@@ -167,6 +171,7 @@ ai-agent/
 | `generatePDF` | 生成 PDF 文档，支持文字、标题、图片嵌入 |
 | `listPdfFiles` / `deletePdfFile` | PDF 文件管理 |
 | `FileOperationTool` | 文件读写、目录操作 |
+| `executeWorkflow` | 执行预设工作流（pdf_report、image_album），自动编排多工具按序执行 |
 | `doTerminate` | Agent 任务结束信号 |
 
 ### 📖 RAG 引用标注流程
@@ -176,7 +181,9 @@ ai-agent/
   ↓
 GET /api/ai/knowledge/chat/rag/stream
   ↓
-后端：查询重写 → QuestionAnswerAdvisor（向量检索）
+后端：QueryRewriter 智能判断（是否需要检索，单一判据：问题是否与个人笔记相关）
+  ├── 无需检索 → 直接走普通流式对话
+  ├── 需要检索 → 查询改写 → QuestionAnswerAdvisor（向量检索，相似度阈值 0.5）
   ├── DocCaptureAdvisor（捕获检索到的文档切片）
   ├── 注入引用标注指令 → AI 用 [1]、[2] 标注来源
   ├── 流式输出 AI 回复
@@ -191,16 +198,55 @@ GET /api/ai/knowledge/chat/rag/stream
 ### 🖼 图片处理流程
 
 ```
-AI 搜索图片 → ImageSearchTool 获取原图 URL（murl）
+AI 搜索图片 → ImageSearchTool 获取原图 URL（murl，黑名单过滤防盗链素材站）
   ↓
-前端显示 → 后端 ImageProxyController 代理加载（绕过防盗链）
+前端显示 → ImageProxyController 代理加载（ImageProxyService 单次尝试，完整浏览器请求头）
   ↓
-PDF 生成 → 后端多策略下载（不同 Referer 重试），iText 嵌入
+PDF 生成 → ImageProxyService 多策略下载（Bing Referer → 无 → 域名自身），iText 嵌入
 ```
 
 - 图片来源：Bing Image Search 原始来源 URL，**无 CDN 白边填充**
-- 防盗链：后端代理下载，携带浏览器完整请求头
+- 防盗链：统一走 `ImageProxyService` 下载（携带完整浏览器请求头 `sec-ch-ua`、`sec-fetch-*` 等）
+- 硬防盗链站点（昵图网、道客巴巴、图虫、视觉中国等）在搜索源头黑名单过滤
 - 图片下载到 `tmp/download/`，PDF 生成后保留供后续使用
+
+### 🔗 工作流引擎
+
+```
+用户请求匹配预设场景（如"搜索图片并生成PDF"）
+  ↓
+LLM 判断命中工作流 → 调用 executeWorkflow("image_album", query)
+  ↓
+WorkflowEngine 按序执行：
+  Step1: searchImages(query)                         → ctx.imageUrls
+  Step2: generatePDF(fileName, query + 图片列表)      → ctx.pdfFile
+  ↓
+返回结果给 LLM → LLM 告知用户
+```
+
+- 步骤参数用 `{表达式}` 占位符模板（SPEL 变量自动补 `#` 前缀），参数以 JSON 对象形式调用多参数工具
+- 工具输出经 JSON 还原后作为步骤变量，通过注册的 SPEL 函数提取字段（`toImages` 提取图片 URL 转 Markdown、`extractUrl` 取首个 URL）
+- 预置流程：`pdf_report`（搜索→图片搜索→抓取→生成PDF）、`image_album`（搜图→生成PDF）
+- 不匹配预设场景时由 LLM 自行编排工具调用
+
+### 🛡 统一异常降级
+
+基于 `@Degradable` 注解 + AOP 切面，工具调用异常时自动执行降级策略：
+
+| 策略 | 行为 | 适用场景 |
+|------|------|---------|
+| `NOTIFY_USER`（默认） | 捕获异常，返回用户提示 | 所有工具通用兜底 |
+| `RETRY` | 自动重试 N 次（默认 3 次） | 网络波动等临时故障 |
+| `USE_CACHE` | 返回上次调用成功的结果 | 搜索结果等幂等操作 |
+| `SKIP` | 返回 null，跳过此工具 | 非关键路径的辅助工具 |
+| `USE_ALTERNATIVE` | 提示已切换备选方案 | 有备用服务可切换的场景 |
+
+使用示例：
+```java
+@Tool(description = "联网搜索")
+@Degradable(strategy = FallbackStrategy.RETRY, maxRetries = 2)
+public String searchWeb(String query) { ... }
+```
 
 ---
 
@@ -210,7 +256,7 @@ PDF 生成 → 后端多策略下载（不同 Referer 重试），iText 嵌入
 - **中文编码**：JVM 启动参数需添加 `-Dfile.encoding=UTF-8`，否则 Markdown 文档加载会出现中文乱码
 - **JWT 密钥**：每次启动随机生成，重启后旧 token 自动失效，无需重新登录配置
 - **MCP 客户端**：默认禁用，如需启用请配置 `mcp-servers.json`
-- **向量库**：SimpleVectorStore（内存向量库），启动时从 `classpath:document/*.md` 加载知识文档
+- **向量库**：MongoDB（自研 `MongoVectorStore`，集合 `vector_store`，应用层余弦检索），通过 `conditionProperty.ai.bean-type` 与内存向量库（SimpleVectorStore）互斥切换，启动时从 `classpath:document/*.md` 幂等增量加载知识文档
 - **前端 UI**：使用 `/ui-ux-pro-max` 技能获取设计规范
 
 ---

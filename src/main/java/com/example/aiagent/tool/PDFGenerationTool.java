@@ -2,9 +2,8 @@ package com.example.aiagent.tool;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.http.HttpRequest;
-import cn.hutool.http.HttpResponse;
 import com.example.aiagent.constant.FileConstant;
+import com.example.aiagent.service.ImageProxyService;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.colors.ColorConstants;
@@ -27,7 +26,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -47,6 +45,18 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 public class PDFGenerationTool {
+
+    /** 图片代理服务（携带完整浏览器请求头下载，绕过防盗链） */
+    private final ImageProxyService imageProxyService;
+
+    /**
+     * 构造 PDF 生成工具
+     *
+     * @param imageProxyService 图片代理服务（下载网络图片）
+     */
+    public PDFGenerationTool(ImageProxyService imageProxyService) {
+        this.imageProxyService = imageProxyService;
+    }
 
     /** PDF 文件保存根目录 */
     private static final String PDF_DIR = FileConstant.FILE_SAVE_DIR + "/pdf";
@@ -357,6 +367,13 @@ public class PDFGenerationTool {
 
             Image image = new Image(imageData);
 
+            // 过滤过小图片（防盗链占位图通常尺寸极小，如 1x1 像素）
+            if (image.getImageWidth() < 50 || image.getImageHeight() < 50) {
+                log.warn("图片尺寸过小，视为无效: {}x{} - {}", image.getImageWidth(), image.getImageHeight(),
+                        StrUtil.maxLength(src, 80));
+                return null;
+            }
+
             // 安全缩放：确保图片能放入页面，scaleToFit 等比缩放
             image.scaleToFit(PAGE_WIDTH_PT - 20, 500f);
 
@@ -375,63 +392,24 @@ public class PDFGenerationTool {
 
     /**
      * 从网络 URL 加载图片
-     * 使用 HuTool HttpRequest，可自定义请求头绕过防盗链。
-     * 自动多策略重试：先用 Bing Referer，再用无 Referer，最后用图片域名自身。
-     * 如果图片为 WEBP 格式，自动转换为 PNG 后交给 iText。
+     * 通过 ImageProxyService 下载（携带完整浏览器请求头 + 多策略 Referer，绕过防盗链），
+     * 如果图片为 WEBP 格式，自动转换为 PNG 后交给 iText
      */
     private ImageData loadImageFromUrl(String url, List<String> tempFiles) {
-        // 多策略下载：不同的 Referer 应对不同站点的防盗链
-        String[] referers = {
-                "https://www.bing.com/",
-                "",
-                extractDomain(url)
-        };
-
-        for (String referer : referers) {
-            ImageData result = tryDownload(url, referer, tempFiles);
-            if (result != null) return result;
-        }
-
-        // 全部失败，最后直连
-        log.warn("Failed to download image: {}", url);
-        try {
-            return ImageDataFactory.create(new URL(url));
-        } catch (Exception e) {
-            log.warn("Failed to read image directly: {}", url);
+        ImageProxyService.ImageFetchResult result = imageProxyService.fetch(url);
+        if (result == null) {
+            log.warn("Failed to download image: {}", url);
             return null;
         }
-    }
-
-    /**
-     * 用指定 Referer 尝试下载一张图片
-     */
-	    private ImageData tryDownload(String url, String referer, List<String> tempFiles) {
-	        String fileName = extractFileNameFromUrl(url);
-	        try {
-	            String tempFilePath = safeResolveTemp(fileName);
-
-            HttpRequest req = HttpRequest.get(url)
-                    .setFollowRedirects(true)
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-                            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    .header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-                    .timeout(15000);
-            if (StrUtil.isNotBlank(referer)) {
-                req.header("Referer", referer);
-            }
-
-            byte[] bytes = req.execute().bodyBytes();
-            if (bytes == null || bytes.length == 0) return null;
-
-            String fmt = detectImageFormat(bytes);
-            if ("unknown".equals(fmt)) return null;
-
-            FileUtil.writeBytes(bytes, tempFilePath);
+        try {
+            String fileName = extractFileNameFromUrl(url);
+            String tempFilePath = safeResolveTemp(fileName);
+            FileUtil.writeBytes(result.bytes(), tempFilePath);
             tempFiles.add(tempFilePath);
 
-            if ("webp".equals(fmt)) {
+            if ("webp".equals(result.format())) {
                 log.info("WEBP->PNG: {}", fileName);
-                byte[] png = convertWebpToPng(bytes);
+                byte[] png = convertWebpToPng(result.bytes());
                 if (png == null) return null;
                 String p = tempFilePath + ".png";
                 FileUtil.writeBytes(png, p);
@@ -439,43 +417,12 @@ public class PDFGenerationTool {
                 return ImageDataFactory.create(p);
             }
 
-            log.info("Downloaded image: {} ({} bytes)", fileName, bytes.length);
+            log.info("Downloaded image: {} ({} bytes)", fileName, result.bytes().length);
             return ImageDataFactory.create(tempFilePath);
-
-	        } catch (Exception e) {
-	            log.warn("tryDownload failed: {} - {}", fileName != null ? fileName : url, e.getMessage());
-	            return null;
-	        }
-    }
-
-    /**
-     * 从 URL 提取域名作为备选 Referer
-     */
-    private String extractDomain(String url) {
-        try {
-            java.net.URL u = new java.net.URL(url);
-            return u.getProtocol() + "://" + u.getHost() + "/";
         } catch (Exception e) {
-            return "";
+            log.warn("loadImageFromUrl failed: {} - {}", url, e.getMessage());
+            return null;
         }
-    }
-
-    /**
-     * 检测图片格式（通过文件魔数）
-     */
-    private String detectImageFormat(byte[] header) {
-        if (header.length < 4) return "unknown";
-        // JPEG: FF D8 FF
-        if (header[0] == (byte) 0xFF && header[1] == (byte) 0xD8 && header[2] == (byte) 0xFF) return "jpeg";
-        // PNG: 89 50 4E 47
-        if (header[0] == (byte) 0x89 && header[1] == (byte) 0x50 && header[2] == (byte) 0x4E && header[3] == (byte) 0x47) return "png";
-        // GIF: 47 49 46 38
-        if (header[0] == (byte) 0x47 && header[1] == (byte) 0x49 && header[2] == (byte) 0x46 && header[3] == (byte) 0x38) return "gif";
-        // WEBP: 52 49 46 46 (RIFF...)
-        if (header[0] == (byte) 0x52 && header[1] == (byte) 0x49 && header[2] == (byte) 0x46 && header[3] == (byte) 0x46) return "webp";
-        // BMP: 42 4D
-        if (header[0] == (byte) 0x42 && header[1] == (byte) 0x4D) return "bmp";
-        return "unknown";
     }
 
     /**

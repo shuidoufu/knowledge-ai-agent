@@ -23,8 +23,6 @@ import java.util.stream.StreamSupport;
 
 /**
  * 知识库向量数据库配置（初始化 MongoDB 向量数据库 Bean）
- * 使用自研 MongoVectorStore（文档+向量存 MongoDB 集合，应用层余弦相似度检索），
- * 兼容 MongoDB 社区版（不依赖 Atlas Search 的 $vectorSearch）
  * 通过 conditionProperty.ai.bean-type=mongoVectorStore 条件加载，与内存向量库（KnowledgeAppVectorStoreConfig）互斥切换
  */
 @Slf4j
@@ -49,7 +47,7 @@ public class MongoVectorStoreConfig {
 
     /**
      * 创建 MongoDB 向量数据库 Bean
-     * 与内存向量库 Bean 同名且均标注 @Primary，由 conditionProperty.ai.bean-type 控制互斥加载，避免 Bean 冲突
+     * 与内存向量库 Bean 同名且均标注 @Primary，由 conditionProperty.ai.bean-type 控制互斥加载
      *
      * @param mongoTemplate  MongoDB 操作模板
      * @param embeddingModel 向量化模型（千问 DashScope）
@@ -59,8 +57,6 @@ public class MongoVectorStoreConfig {
     @Primary
     public VectorStore knowledgeVectorStore(MongoTemplate mongoTemplate,
                                             @Qualifier("dashscopeEmbeddingModel") EmbeddingModel embeddingModel) {
-        // 自研实现：存储结构（_id/content/metadata/embedding）与官方 MongoDBAtlasVectorStore 一致，
-        // 检索在应用层计算余弦相似度，兼容 MongoDB 社区版（Atlas Search 为 Enterprise/Atlas 专属特性）
         MongoVectorStore vectorStore = new MongoVectorStore(mongoTemplate, embeddingModel,
                 collectionName, pathName, new DashScopeBatchingStrategy());
         // 幂等增量加载本地知识库文档
@@ -70,16 +66,14 @@ public class MongoVectorStoreConfig {
 
     /**
      * 幂等增量加载知识库文档
-     * 为每个文档切片生成稳定 documentId（文件名 + 内容MD5），已存在的切片跳过，
-     * 避免重启时重复调用 embedding API 和产生重复数据；文档内容变更时自动增量补入
+     * 为每个文档切片生成稳定 documentId（文件名 + 内容MD5），已存在的切片跳过，文档内容变更时自动增量补入
      *
      * @param vectorStore   MongoDB 向量数据库
      * @param mongoTemplate MongoDB 操作模板（用于查询已存在的文档 id）
      */
     private void loadDocumentsIncrementally(VectorStore vectorStore, MongoTemplate mongoTemplate) {
         List<Document> documentList = knowledgeAppDocumentLoader.loadMarkdowns();
-        // 为每个切片生成稳定 documentId：文件名#内容MD5（内容不变则 id 不变，重启时跳过）
-        // Document 不可变，需通过 builder 重建带稳定 id 的切片
+        // 为每个切片生成稳定 documentId：文件名#内容MD5
         for (int i = 0; i < documentList.size(); i++) {
             Document document = documentList.get(i);
             String filename = (String) document.getMetadata().getOrDefault("filename", "unknown");
@@ -106,14 +100,12 @@ public class MongoVectorStoreConfig {
     }
 
     /**
-     * 按条数分批的向量化分批策略
-     * DashScope embedding API 单次调用最多 25 条文本，而官方默认的 TokenCountBatchingStrategy
-     * 按 token 数分批（切片 token 较少时单批可能超过 25 条），因此按条数每批 20 条分批，保证兼容
+     * 按条数分批的向量化分批策略（每批 20 条）
      */
     private static class DashScopeBatchingStrategy implements BatchingStrategy {
 
         /**
-         * 每批最大条数（DashScope 上限 25，留 20% 余量）
+         * 每批最大条数
          */
         private static final int MAX_BATCH_SIZE = 20;
 

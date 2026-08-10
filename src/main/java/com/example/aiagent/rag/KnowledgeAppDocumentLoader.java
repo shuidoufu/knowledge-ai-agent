@@ -16,8 +16,8 @@ import java.util.List;
  * 知识库文档加载器
  * 加载 classpath:document/*.md 文件，使用 MarkdownDocumentReader 解析为文档切片
  * 优化点：
- * 1. status 标签取文件主题（去序号前缀），替代旧的无意义截取规则
- * 2. 把切片标题拼入正文开头，使标题词参与向量化（embedding 仅基于正文，metadata 不参与）
+ * 1. status 标签取文件主题（去序号前缀）
+ * 2. 把切片标题拼入正文开头，使标题词参与向量化
  */
 @Slf4j
 @Component
@@ -85,7 +85,7 @@ public class KnowledgeAppDocumentLoader {
             if (doc.getText() == null || doc.getText().isBlank()) {
                 continue;
             }
-            // 标题拼入正文开头：标题词参与向量化，否则搜标题无法命中（embedding 仅基于正文）
+            // 标题拼入正文开头，使标题词参与向量化
             String title = (String) doc.getMetadata().get("title");
             String text = doc.getText();
             if (title != null && !title.isBlank() && !text.startsWith(title)) {
