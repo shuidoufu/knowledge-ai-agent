@@ -125,31 +125,46 @@
           <div v-else>
             <div v-if="loading && i === messages.length - 1" class="streaming-text">{{ msg.content }}</div>
             <div v-else v-html="renderMarkdown(msg.content)"></div>
-            <!-- RAG 引用切片展示 -->
-            <div v-if="msg.references && msg.references.length > 0" class="rag-references">
-	              <div class="rag-refs-header">
-		                <FileText class="refs-icon" size="16" />
-		                <span>知识库引用 <span class="refs-count">{{ msg.references.length }}</span></span>
-		                <button class="refs-toggle" @click="msg._refsCollapsed = !msg._refsCollapsed">
-		                  <ChevronDown class="toggle-icon" :class="{ rotated: !msg._refsCollapsed }" size="18" />
-		                </button>
-		              </div>
-	              <div v-if="!msg._refsCollapsed" class="rag-refs-list">
-	                <div v-for="(ref, ri) in msg.references" :key="ri" class="rag-ref-item">
-	                  <div class="rag-ref-index">{{ ref.index }}</div>
-	                  <div class="rag-ref-body">
-	                    <div class="rag-ref-content">{{ ref.content }}</div>
-	                    <div v-if="ref.metadata && ref.metadata.filename" class="rag-ref-source">
-	                      <svg viewBox="0 0 24 24" fill="none" class="source-icon"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.5"/></svg>
-	                      {{ ref.metadata.filename }}
-	                    </div>
-	                  </div>
-	                </div>
-	              </div>
+            <!-- 播报按钮 + 知识库引用（分割线下方区域） -->
+            <div class="speech-refs-area">
+              <!-- 语音播报按钮 -->
+              <button
+                v-if="msg.content && !(loading && i === messages.length - 1)"
+                class="speech-btn"
+                :class="{ speaking: msg._speaking }"
+                @click="toggleSpeech(msg)"
+                :title="msg._speaking ? '停止播报' : '语音播报'"
+              >
+                <Volume2 v-if="!msg._speaking" size="14" />
+                <VolumeX v-else size="14" />
+                <span>{{ msg._speaking ? '停止' : '播报' }}</span>
+              </button>
+              <!-- RAG 引用切片展示 -->
+              <div v-if="msg.references && msg.references.length > 0" class="rag-references">
+		              <div class="rag-refs-header">
+			                <FileText class="refs-icon" size="16" />
+			                <span>知识库引用 <span class="refs-count">{{ msg.references.length }}</span></span>
+			                <button class="refs-toggle" @click="msg._refsCollapsed = !msg._refsCollapsed">
+			                  <ChevronDown class="toggle-icon" :class="{ rotated: !msg._refsCollapsed }" size="18" />
+			                </button>
+			              </div>
+			              <div v-if="!msg._refsCollapsed" class="rag-refs-list">
+			                <div v-for="(ref, ri) in msg.references" :key="ri" class="rag-ref-item">
+			                  <div class="rag-ref-index">{{ ref.index }}</div>
+			                  <div class="rag-ref-body">
+			                    <div class="rag-ref-content">{{ ref.content }}</div>
+			                    <div v-if="ref.metadata && ref.metadata.filename" class="rag-ref-source">
+			                      <svg viewBox="0 0 24 24" fill="none" class="source-icon"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" stroke-width="1.5"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.5"/></svg>
+			                      {{ ref.metadata.filename }}
+			                    </div>
+			                  </div>
+			                </div>
+			              </div>
+		            </div>
             </div>
-          </div>
-        </div>
-      </div>
+	          </div>
+	        </div>
+	      </div>
       <!-- 打字指示器 -->
       <div v-if="loading" class="typing-indicator">
         <div class="typing-dot"></div>
@@ -222,7 +237,7 @@ import { streamKnowledgeChat, streamKnowledgeChatRag, request, updateChatTitle, 
 import { username as reactiveUsername } from '../utils/auth'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ArrowLeft, Search, ChevronDown, ArrowRight, Square, X, FileText } from '@lucide/vue'
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ArrowLeft, Search, ChevronDown, ArrowRight, Square, X, FileText, Volume2, VolumeX } from '@lucide/vue'
 
 const chatId = ref('')
 const messages = ref([])
@@ -414,6 +429,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   delete window.__previewImage
+  stopSpeech()
 })
 
 	/** AI 回复：渲染为安全的 Markdown HTML */
@@ -519,6 +535,71 @@ function stopStream() {
     abortController.value.abort()
     abortController.value = null
     loading.value = false
+  }
+}
+
+// 语音播报
+let speechAudio = null // 当前播放的 Audio 对象（非响应式）
+let speechUrl = null   // 当前播放音频的 Blob URL（非响应式）
+
+/** 停止当前语音播报并复位所有播报状态 */
+function stopSpeech() {
+  if (speechAudio) {
+    speechAudio.pause()
+    speechAudio.onended = null
+    speechAudio.onerror = null
+    speechAudio = null
+  }
+  if (speechUrl) {
+    URL.revokeObjectURL(speechUrl)
+    speechUrl = null
+  }
+  for (const m of messages.value) {
+    if (m._speaking) m._speaking = false
+  }
+}
+
+/** 播报/停止 AI 消息语音 */
+async function toggleSpeech(msg) {
+  // 点击正在播报的消息 → 停止
+  if (msg._speaking) {
+    stopSpeech()
+    return
+  }
+  if (!msg.content || loading.value) return
+  stopSpeech()
+  msg._speaking = true
+  try {
+    const res = await request.post('/speech/tts', { text: msg.content }, {
+      responseType: 'blob',
+      timeout: 120000,
+    })
+    if (!msg._speaking) return // 等待期间已被停止
+    const url = URL.createObjectURL(res.data)
+    speechUrl = url
+    const audio = new Audio(url)
+    speechAudio = audio
+    audio.onended = () => {
+      URL.revokeObjectURL(url)
+      if (speechUrl === url) speechUrl = null
+      msg._speaking = false
+      speechAudio = null
+    }
+    audio.onerror = () => {
+      URL.revokeObjectURL(url)
+      if (speechUrl === url) speechUrl = null
+      msg._speaking = false
+      speechAudio = null
+      showToast('语音播报失败', 'error')
+    }
+    await audio.play()
+  } catch (err) {
+    if (speechUrl) {
+      URL.revokeObjectURL(speechUrl)
+      speechUrl = null
+    }
+    msg._speaking = false
+    showToast('语音播报失败：' + (err?.message || '网络错误'), 'error')
   }
 }
 </script>
@@ -1157,6 +1238,34 @@ function stopStream() {
   color: #1e293b;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
+/* AI 回复语音播报按钮 + 知识库引用区域（顶部分割线） */
+.speech-refs-area {
+  margin-top: 16px;
+  border-top: 1px solid rgba(245, 158, 11, 0.12);
+  padding-top: 12px;
+}
+.speech-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 11px 14px;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.08);
+  color: #10B981;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.speech-btn:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+.speech-btn.speaking {
+  background: #10B981;
+  border-color: #10B981;
+  color: #fff;
+}
 /* Enhanced Markdown styles for light theme */
 .markdown-body :deep(p) {
   margin-bottom: 0.9em;
@@ -1509,9 +1618,7 @@ function stopStream() {
 
 /* ==================== RAG 引用切片展示 ==================== */
 .rag-references {
-  margin-top: 16px;
-  border-top: 1px solid rgba(245,158,11,0.12);
-  padding-top: 12px;
+  margin-top: 12px;
 }
 .rag-refs-header {
   display: flex;

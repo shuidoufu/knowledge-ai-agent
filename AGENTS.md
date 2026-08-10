@@ -169,6 +169,10 @@ tool/        → Agent 工具（FileOperationTool、WebSearchTool、ImageSearchT
 27. **tool.call() 返回值会被 JSON 序列化**：Spring AI 的 `DefaultToolCallResultConverter` 把工具返回值 `JsonParser.toJson(result)`——String 值变成**带首尾引号和转义的 JSON 字符串字面量**（真实换行变成字面量 `\n`、引号变 `\"`）。工作流步骤间传值时必须用 `objectMapper.readValue(output, String.class)` 还原（`normalizeToolOutput`），否则后续基于行结构/正则的处理全部失效
 28. **图片下载必须走 ImageProxyService**：Bing 等 CDN 防盗链校验需要完整浏览器请求头（`sec-ch-ua`、`sec-fetch-*` 等），仅 UA+Referer 会被拒（返回 403/防盗链占位图）。`service/ImageProxyService.java` 统一提供下载（完整请求头 + 多策略 Referer），`ImageProxyController`（前端展示，单次尝试 `fetchOnce`）与 `PDFGenerationTool`（PDF 插图，多策略 `fetch`）共用，禁止各自实现下载逻辑
 29. **防盗链素材站需在搜索结果源头过滤**：部分站点（如 `nipic.com` 昵图网、`51wendang.com`、`dfic.cn` 图虫、`veer.com`、`quanjing.com`、`vcg.com` 视觉中国、`58pic.com`、`zcool.com.cn`）的图片无法通过任何请求头组合正常下载（403 或返回防盗链占位图，如昵图网返回"昵图网防盗链"占位图）。**在 `ImageSearchTool.BLOCKED_IMAGE_HOSTS` 黑名单过滤（搜索结果直接排除），遇到新的防盗链站点追加域名即可**。PDF 侧另有防御：下载的图片像素 <50x50 视为占位图跳过
+30. **长文本禁止放 GET query 参数**：URL 编码后超过 Tomcat 默认 `max-http-header-size`（8KB）时，Tomcat 直接返回 400 HTML 错误页（请求根本到不了 Controller，表现为"长文本请求失败、短文本正常"）。**长文本一律走 POST + JSON body**（见 `SpeechController`：文本放 `SpeechRequest.text`）。同类问题排查时先确认 400 响应是 JSON（业务层）还是 HTML（Tomcat 层）
+31. **Spring 6 的 MediaType 无 AUDIO_MPEG 常量**：`MediaType.AUDIO_MPEG` / `AUDIO_MPEG_VALUE` 都不存在（编译报"找不到符号"），音频类型用 `MediaType.parseMediaType("audio/mpeg")`
+32. **DashScope 语音合成（TTS）接入要点**：`spring-ai-alibaba-starter` 自动注册 `DashScopeSpeechSynthesisModel`（Bean 方法名是**驼峰** `dashScopeSpeechSynthesisModel`，与 chat/embedding 的全小写 `dashscopeXxx` 不同），按类型注入 `SpeechSynthesisModel` 接口即可（当前仅一个实现）。调用链：`SpeechSynthesisPrompt(text, DashScopeSpeechSynthesisOptions(model, voice))` → `call()` → `getResult().getOutput().getAudio()`（ByteBuffer）。**CosyVoice 模型与音色必须匹配**（cosyvoice-v1 用 `longxiaochun`/`longcheng`，v2/v3 音色名带 `_v2`/`_v3` 后缀）；单次合成有长度上限（按 ≤900 字符分段，分段结果 MP3 字节直接拼接可连续播放）；**DashScope WS 合成偶发断连**（`SocketException: 你的主机中的软件中止了一个已建立的连接`），合成调用必须重试（见 `SpeechSynthesisService` 的 `MAX_RETRIES`）；音色/模型建议配置化（`ai.tts.*`）便于切换。**TTS 合成慢（短文本 1-2s，长文本可达 40s+），必须加缓存**：`SpeechSynthesisService` 按**清洗后文本的 MD5** 作 key，合成结果存 `tmp/tts/{md5}.mp3`（文件持久化，重启不丢，命中直接读文件返回，毫秒级）；相同 key 并发请求用 `ConcurrentHashMap` 锁防重复合成；⚠️ **DashScope 额度用尽时 WS 调用不报错而是挂起不响应**（前端表现为"播报无声音 + 120s 超时"），遇到此现象优先检查百炼控制台语音模型额度
+33. **前端 Blob URL 必须成对 revoke**：`URL.createObjectURL(blob)` 创建的 URL 在播放结束（`onended`）、出错（`onerror`）、主动停止、播放失败（`play()` reject）四条路径都要 `URL.revokeObjectURL`，否则每次播报泄漏一个 Blob URL。停止/切换播报时统一在 `stopSpeech()` 里处理
 
 ---
 
@@ -201,6 +205,59 @@ cd frontend && npm run dev
 
 # 构建
 ./mvnw clean package -DskipTests
+```
+
+---
+
+## 🔧 Git 提交规则
+
+**提交代码时：只提交本次改动的代码文件，提交信息按"日期 + 分条编号"格式。**
+
+### 提交原则
+
+- ✅ **只提交改动代码**：必须精确 `git add <文件路径>`（可一次加多个文件），**禁止** `git add .` / `git add -A` / `git add *`（会把构建产物、缓存、测试临时文件全部提交）
+- ✅ **提交前先检查**：`git status` 查看改动列表，确认只包含本次改动的文件
+- ✅ **排除以下文件**（无论 git status 是否显示，一律不提交）：
+  - 构建产物：`frontend/dist/`（npm run build 输出，不是源码）
+  - 缓存目录：`**/__pycache__/`、`.idea/` 等
+  - 本地敏感配置：`application.yml`、`application-local.yml`、`application-prod.yml`（含 API Key 明文，已在 .gitignore）
+  - 测试临时文件：测试生成的 mp3、日志、临时脚本等
+- ✅ **删除文件**：`git rm <文件>` 或用 `git add <已删除的文件路径>`（Git 会记录删除）
+- ✅ **提交后推送**：`git push` 推送到当前分支（如 `knowledge`），提交前 `git pull` 同步远端
+
+### 提交信息格式
+
+```
+2026/8/10：
+1. PDF生成时，图片代理相关服务优化，防止出现防盗链图片（屏蔽网站）；
+2. 查询重写优化，闲聊问题不调用RAG；
+3. 新增工作流引擎功能
+```
+
+规则要点：
+
+- 第一行：`YYYY/M/D：`（日期不补零，如 `2026/8/10`，后跟中文全角冒号 `：`）
+- 每条改动一行，编号 `1.` `2.` `3.`，每条以中文分号 `；` 结尾（最后一条可省略）
+- 描述格式：`名词 + 动词` 的短语（如"新增工作流引擎功能"、"查询重写优化"），一句话说清改了什么
+- 一个功能多文件改动 → 合并为一条；多个独立功能 → 分条列出
+
+### 提交命令示例（Git Bash）
+
+```bash
+# 1. 精确添加本次改动文件
+git add src/main/java/com/example/aiagent/service/SpeechSynthesisService.java \
+        src/main/java/com/example/aiagent/controller/SpeechController.java \
+        frontend/src/views/KnowledgeChat.vue
+
+# 2. 提交（多行信息用 heredoc，避免引号转义问题）
+git commit -F - <<'EOF'
+2026/8/11：
+1. AI回复支持语音播报，接入百炼CosyVoice语音合成（TTS）；
+2. 新增语音合成接口与重试降级，长文本自动分段
+EOF
+
+# 3. 推送
+git push
 ```
 
 ---
