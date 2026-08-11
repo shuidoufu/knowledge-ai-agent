@@ -323,6 +323,8 @@ async function loadHistoryChat(loadChatId) {
   if (window.innerWidth <= 768) {
     isSidebarOpen.value = false
   }
+  // 切换会话时清空输入框，避免残留内容误发到其他会话
+  inputText.value = ''
   try {
     const res = await request.get(`/ai/knowledge/chat/history/${loadChatId}`)
     chatId.value = loadChatId

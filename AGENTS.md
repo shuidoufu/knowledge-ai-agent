@@ -28,6 +28,7 @@ rag/         → RAG 检索增强（向量存储、文档加载、查询改写�
 repository/  → 数据访问层
 service/     → 业务逻辑
 tool/        → Agent 工具（FileOperationTool、WebSearchTool、ImageSearchTool、WorkflowTool 等）
+notes/       → 存放的网页收藏技术文档书签 + 语雀技术文档（处理后，用作 RAG 知识库）
 ```
 
 **请求流转**：Vue → Controller → Agent → Advisor链 → LLM → Tool调用 → 响应
@@ -174,6 +175,8 @@ tool/        → Agent 工具（FileOperationTool、WebSearchTool、ImageSearchT
 32. **DashScope 语音合成（TTS）接入要点**：`spring-ai-alibaba-starter` 自动注册 `DashScopeSpeechSynthesisModel`（Bean 方法名是**驼峰** `dashScopeSpeechSynthesisModel`，与 chat/embedding 的全小写 `dashscopeXxx` 不同），按类型注入 `SpeechSynthesisModel` 接口即可（当前仅一个实现）。调用链：`SpeechSynthesisPrompt(text, DashScopeSpeechSynthesisOptions(model, voice))` → `call()` → `getResult().getOutput().getAudio()`（ByteBuffer）。**CosyVoice 模型与音色必须匹配**（cosyvoice-v1 用 `longxiaochun`/`longcheng`，v2/v3 音色名带 `_v2`/`_v3` 后缀）；单次合成有长度上限（按 ≤900 字符分段，分段结果 MP3 字节直接拼接可连续播放）；**DashScope WS 合成偶发断连**（`SocketException: 你的主机中的软件中止了一个已建立的连接`），合成调用必须重试（见 `SpeechSynthesisService` 的 `MAX_RETRIES`）；音色/模型建议配置化（`ai.tts.*`）便于切换。**TTS 合成慢（短文本 1-2s，长文本可达 40s+），必须加缓存**：`SpeechSynthesisService` 按**清洗后文本的 MD5** 作 key，合成结果存 `tmp/tts/{md5}.mp3`（文件持久化，重启不丢，命中直接读文件返回，毫秒级）；相同 key 并发请求用 `ConcurrentHashMap` 锁防重复合成；⚠️ **DashScope 额度用尽时 WS 调用不报错而是挂起不响应**（前端表现为"播报无声音 + 120s 超时"），遇到此现象优先检查百炼控制台语音模型额度
 33. **前端 Blob URL 必须成对 revoke**：`URL.createObjectURL(blob)` 创建的 URL 在播放结束（`onended`）、出错（`onerror`）、主动停止、播放失败（`play()` reject）四条路径都要 `URL.revokeObjectURL`，否则每次播报泄漏一个 Blob URL。停止/切换播报时统一在 `stopSpeech()` 里处理
 34. **DashScope 语音识别（STT）接入要点**：百炼**录音文件识别（离线 paraformer-v2）仅支持公网 URL**（不支持本地文件/Base64），本地音频必须走**实时识别 WS**（`paraformer-realtime-v2`，`dashscope-sdk-java` 的 `com.alibaba.dashscope.audio.asr.recognition.Recognition`，注意 2.18.5 无 `realtimev2` 包）。半双工调用链：`RecognitionParam.builder().model().sampleRate(16000).format("pcm").apiKey()` → `recognition.call(param, callback)` → 逐帧 `sendAudioFrame(ByteBuffer)`（每帧 100ms 音频）→ `stop()`；回调 `isSentenceEnd()` 时取 `sentence.getText()` 拼接。**必须加超时保护**（`CountDownLatch.await(30s)`，WS 挂起教训同 TTS）+ 失败重试 3 次；WAV 需 16kHz 单声道 16bit PCM（前端 Web Audio API 录制 + 手动降采样 + 纯 JS 封装 44 字节 WAV 头，见 `SpeechRecognitionService` / KnowledgeChat.vue 的 `encodeWav`）。前端录音细节：**ScriptProcessor 不要 connect 到 destination（会扬声器回放产生回声）**；`AudioContext` 需 `await resume()`（自动化合成点击不被识别为用户手势时会 suspended 导致采集不触发）
+35. **HTML 转 Markdown 工具（HtmlToMarkdownConverter）要点**：①**jsoup 1.19.1 的 `TextNode` 没有 `wholeText()` 方法**，保留原始空白（代码块缩进/换行）必须用 `getWholeText()`（编译报"找不到符号"时先 javap 查 jar 里的实际方法名）；②**递归转行内格式时禁止把元素自身传给下一层**（`appendWrapped(sb, el)` 内再调 `inlineText(el)` 会对 strong/a 等标签无限自环 → StackOverflowError），必须改为递归 `el.childNodes()`（子节点不会命中父级 case）；③**`## 前插 `---` 分割线必须跳过 ``` 代码围栏**，否则代码里的 `## 注释` 会被插入分割线破坏代码并产生错误切片边界，处理时按行扫描维护 `inFence` 状态；④**代码块原文保留**：`<pre><code>` 用 `getWholeText()` 取原始文本，`List<String>` 等泛型/小于号不会被清洗逻辑误删（该工具不执行 DocumentPreprocessor 的 HTML 标签剥离，jsoup 解析后标签不会泄漏进文本节点）；⑤**通用文件名重命名**：浏览器"另存为"的 `index.html` 等用页面 `<title>` 重命名输出（清洗非法字符），否则知识库 status 标签会变成无意义的 "index"；⑥**含第三方依赖的工具类不能裸 `java <文件>.java` 启动**（classpath 只有当前目录），必须走 `mvnw exec:java -Dexec.mainClass=...` 或项目根目录的 `html-to-md.bat/.sh` 脚本
+36. **书签模式（html-to-md 解析浏览器收藏夹）要点**：①**Chrome/Edge 的 `Bookmarks` 文件是 JSON 且无扩展名**，书签导出有**三种格式**：JSON（精确名 `Bookmarks` 无扩展名）、**NETSCAPE-Bookmark-file-1 HTML**（按文件头含 `NETSCAPE-Bookmark` 识别）、**Chrome 导出的 `# Bookmarks` Markdown**（按 `.md` 扩展名识别，正则 `\[([^\[\]]*)\]\((https?://[^)\s]+)\)` 提取链接）；②**书签文件识别顺序不能靠"文件名含 bookmarks"**——导出 HTML/Markdown 文件名都含 bookmarks（如 `bookmarks.md`），`isBookmarksJson` 必须收紧为 `.json` 扩展名或**精确名 `Bookmarks`**，否则导出文件会被 Jackson 按 JSON 解析报 `Unexpected character`；③**`exec:java` 的 `-Dexec.args` 按空格分词，路径含空格（如 Chrome 的 `User Data\Default`）必须用引号包裹**（bat/sh 脚本已用 `'%INPUT_DIR%'` 单引号包裹，bat 中单引号是字面字符无转义问题），否则路径被截断报"输入文件或目录不存在"；④**下载细节**：HttpURLConnection 需完整浏览器 UA（部分站点校验 UA）+ 20s 超时 + 重试 2 次；下载存原始字节流，编码检测交给 `Jsoup.parse(file, null)`（自动读 meta）；下载失败只记日志不中断整体流程（**CSDN 等站点偶发/常发 HTTP 521 反爬拦截**——curl 带完整头也绕不过，属站点风控，失败清单打印后可稍后重跑或手动打开另存 HTML 走目录模式）；⑤**下载缓存 `tmp/bookmarks-html/`**（按书签标题命名，重名加序号，已存在的文件跳过下载，重复运行秒级完成）；⑥**并发下载用固定线程池**（Java 17 无虚拟线程，`newFixedThreadPool(4)` + Future.get 收集失败列表）；⑦**书签 JSON 结构**：`roots` 下 bookmark_bar/other/synced 三个根文件夹，节点 `type=url` 有 `url`/`name` 字段，`type=folder` 有 `children` 递归，按 URL 去重 + 过滤 chrome:// 等非 http 链接；⑧**无 alt 的 `<img>` 直接跳过**（点赞/收藏/分享等图标无 alt 只有 URL，输出 `![url](url)` 会成检索噪音），有 alt 的内容图才保留；CSDN 页面噪音类（`.article-info-box` 博主信息、`.toolbox-list` 点赞收藏、`.recommend-box` 推荐阅读等）已收录进 NOISE_SELECTOR；⑨**目录模式必须识别书签 HTML**：用户常把导出的书签 HTML 放进网页收藏目录一起处理，若按普通网页转换会输出一个"书签列表"md（内容只有链接标题，污染知识库）——`processDirectory` 遍历时对每个 `.html/.htm` 先查文件头 `NETSCAPE-Bookmark`，书签文件收集后统一走 `processBookmarksHtml` 书签管线，普通网页才直接转换；⑩**CSDN 等站点 HTTP 521 风控应对**：521 是基于 TLS/请求指纹 + 访问频率的服务端风控，完整 UA/Referer/头组合（curl 实测）均绕不过，**有效手段是携带浏览器 Cookie**（`--cookie "xxx=yyy; ..."` 直接传参或 `--cookie-file <文件>` 从文件读，取法：浏览器 F12 → Network → 右键 Copy as cURL 提取 Cookie 字段），`downloadUrl` 在 cookieHeader 非空时加 `Cookie` 请求头；Cookie 属敏感信息，禁止硬编码在代码里，只经命令行/临时文件传入（tmp 目录已在 .gitignore）；缓存目录 `tmp/bookmarks-html` 已存在的文件跳过下载，若 Cookie 过期导致下载到风控页，需删缓存重跑；**bat/sh 脚本必须透传 `--cookie`/`--cookie-file` 参数**（脚本用 shift 循环解析，`--cookie` 系列参数可出现在任意位置，位置参数 1/2 仍是输入/输出目录，值用单引号包裹避免空格截断）——若脚本只取 `%1` `%2` 两个位置参数，`--cookie-file` 会被当成输出目录，表现为"输出目录变成 --cookie-file"
 
 ---
 
@@ -203,6 +206,13 @@ start-backend.bat
 
 # 前端启动
 cd frontend && npm run dev
+
+# 网页收藏 HTML 转知识库 Markdown 文档（默认输出到 document 目录）
+html-to-md.bat D:\网页收藏目录
+# 或 html-to-md.sh /path/to/html-notes
+
+# 原始 Markdown 笔记清洗（默认输出到 document/yuque-sync）
+preprocess-docs.bat D:\笔记目录
 
 # 构建
 ./mvnw clean package -DskipTests
@@ -288,7 +298,11 @@ git push
 4. 确认核心功能不受影响（登录、聊天、历史管理）
 5. 测试完成后告知用户测试结果
 6. 测试完毕后，关闭所启动的端口
-7. **清理测试数据**：仅删除本次测试新产生的文件，**禁止使用 `rm -rf` 或通配符清空整个目录**（如 `rm -f tmp/pdf/*.pdf`），以免误删用户之前保存的文件。应精确删除已知的测试文件名
+7. **测试文件必须明显标注 + 清理测试数据**：
+   - **测试用临时文件/目录统一放在 `tmp/test-*`**（如 `tmp/test-html`、`tmp/test-out`），命名带 `test` 标识，禁止与真实数据目录（`tmp/download`、`tmp/pdf`、`tmp/tts` 等）混放
+   - **测试产物文件名加 `_test` 后缀或 `测试` 字样标注**（如 `test-知识库转换.html`），并在测试开始时明确告知用户"以下文件为测试临时文件，测试后删除"，方便用户区分
+   - 测试完成后**仅删除本次测试新产生的文件**，**禁止使用 `rm -rf` 或通配符清空整个目录**（如 `rm -f tmp/pdf/*.pdf`），以免误删用户之前保存的文件。应精确删除已知的测试文件名（`tmp/test-*` 目录删除前先 `ls` 确认内容）
+   - **测试文件不得进入知识库/提交**：测试产物禁止输出到 `src/main/resources/document/`（用临时输出目录），若测试写入知识库目录必须测试后精确删除并复查
 8. **代码审查**：每次代码修改完成且自测通过后，**必须调用 Code Review 子智能体**（`review-agent` 技能）审查本次改动：检查代码缺陷（正确性、安全性、明显错误等）+ 对照本文件"代码生成强制规则"的符合性（注释只写功能逻辑、保留原有注释、Lombok、构造注入、Javadoc 格式等），按 P0-P3 输出发现并修复后告知用户
 
 > 注意：**编译通过不等于程序能运行**。Bean 冲突、配置问题、工具名重复、API 调用失败等缺陷只会在启动和实际运行时暴露。严格测试 = 编译 → 启动 → 接口调用 → 验证响应 → 清理数据。
