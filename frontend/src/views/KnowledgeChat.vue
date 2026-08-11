@@ -189,6 +189,18 @@
         :disabled="loading"
         @keydown.enter.exact.prevent="send"
       />
+      <!-- 语音输入（麦克风录音转文字） -->
+      <button
+        class="mic-btn"
+        :class="{ recording }"
+        @click="toggleRecording"
+        :disabled="transcribing || loading"
+        :title="recording ? '停止录音并转写 (' + recordSeconds + 's)' : (transcribing ? '正在转写...' : '语音输入')"
+      >
+        <span v-if="transcribing" class="mic-spinner"></span>
+        <MicOff v-else-if="recording" size="18" />
+        <Mic v-else size="18" />
+      </button>
       <button class="send-btn" :class="{ 'stop-btn': loading }" :disabled="loading ? false : !inputText.trim()" @click="loading ? stopStream() : send()">
 	        <template v-if="loading">
 	          <Square class="btn-icon" size="18" />
@@ -237,7 +249,7 @@ import { streamKnowledgeChat, streamKnowledgeChatRag, request, updateChatTitle, 
 import { username as reactiveUsername } from '../utils/auth'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ArrowLeft, Search, ChevronDown, ArrowRight, Square, X, FileText, Volume2, VolumeX } from '@lucide/vue'
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ArrowLeft, Search, ChevronDown, ArrowRight, Square, X, FileText, Volume2, VolumeX, Mic, MicOff } from '@lucide/vue'
 
 const chatId = ref('')
 const messages = ref([])
@@ -430,6 +442,22 @@ onMounted(() => {
 onUnmounted(() => {
   delete window.__previewImage
   stopSpeech()
+  if (recording.value) {
+    recording.value = false
+    clearInterval(recordTimer)
+    if (scriptProcessor) {
+      scriptProcessor.disconnect()
+      scriptProcessor = null
+    }
+    if (audioContext) {
+      audioContext.close().catch(() => {})
+      audioContext = null
+    }
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((track) => track.stop())
+      mediaStream = null
+    }
+  }
 })
 
 	/** AI 回复：渲染为安全的 Markdown HTML */
@@ -600,6 +628,160 @@ async function toggleSpeech(msg) {
     }
     msg._speaking = false
     showToast('语音播报失败：' + (err?.message || '网络错误'), 'error')
+  }
+}
+
+// 语音输入（STT：麦克风录音转文字）
+const recording = ref(false)      // 是否正在录音
+const transcribing = ref(false)   // 是否正在转写
+const recordSeconds = ref(0)      // 录音秒数
+const RECORD_MAX_SECONDS = 60     // 录音时长上限（秒）
+let mediaStream = null            // 麦克风音频流
+let audioContext = null           // 录音音频上下文
+let scriptProcessor = null        // 录音处理器
+let pcmChunks = []                // 收集的 PCM 分片
+let recordTimer = null            // 录音计时器
+
+/** 开始/停止录音，停止后转写并填入输入框 */
+async function toggleRecording() {
+  if (recording.value) {
+    stopRecording()
+    return
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    showToast('当前浏览器不支持录音', 'error')
+    return
+  }
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    audioContext = new AudioContext()
+    // 确保音频上下文运行（合成点击可能不被识别为用户手势导致 suspended）
+    await audioContext.resume()
+    const source = audioContext.createMediaStreamSource(mediaStream)
+    scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1)
+    pcmChunks = []
+    const sourceRate = audioContext.sampleRate
+    // 采集音频并降采样为 16kHz 单声道 16bit PCM
+    scriptProcessor.onaudioprocess = (event) => {
+      const input = event.inputBuffer.getChannelData(0)
+      const targetRate = 16000
+      if (sourceRate !== targetRate) {
+        const ratio = sourceRate / targetRate
+        const outLen = Math.floor(input.length / ratio)
+        const out = new Int16Array(outLen)
+        for (let i = 0; i < outLen; i++) {
+          out[i] = Math.max(-1, Math.min(1, input[Math.floor(i * ratio)])) * 0x7FFF
+        }
+        pcmChunks.push(out)
+      } else {
+        const out = new Int16Array(input.length)
+        for (let i = 0; i < input.length; i++) {
+          out[i] = Math.max(-1, Math.min(1, input[i])) * 0x7FFF
+        }
+        pcmChunks.push(out)
+      }
+    }
+    source.connect(scriptProcessor)
+    // 静音节点连接扬声器保持音频图活跃（Web Audio 无输出节点的图不执行处理，采集不触发）
+    // 增益为 0 不产生可听输出，因此无回声
+    const silentGain = audioContext.createGain()
+    silentGain.gain.value = 0
+    scriptProcessor.connect(silentGain)
+    silentGain.connect(audioContext.destination)
+    recording.value = true
+    recordSeconds.value = 0
+    recordTimer = setInterval(() => {
+      recordSeconds.value++
+      if (recordSeconds.value >= RECORD_MAX_SECONDS) {
+        stopRecording() // 超时自动停止
+      }
+    }, 1000)
+  } catch (err) {
+    showToast('无法访问麦克风：' + (err?.message || '权限被拒绝'), 'error')
+  }
+}
+
+/** 停止录音，编码 WAV 并上传转写 */
+function stopRecording() {
+  if (!recording.value) return
+  recording.value = false
+  clearInterval(recordTimer)
+  if (scriptProcessor) {
+    scriptProcessor.disconnect()
+    scriptProcessor.onaudioprocess = null
+    scriptProcessor = null
+  }
+  if (audioContext) {
+    audioContext.close().catch(() => {})
+    audioContext = null
+  }
+  if (mediaStream) {
+    mediaStream.getTracks().forEach((track) => track.stop())
+    mediaStream = null
+  }
+  const totalLen = pcmChunks.reduce((sum, chunk) => sum + chunk.length, 0)
+  if (totalLen === 0) {
+    showToast('未录到有效音频', 'error')
+    return
+  }
+  const pcm = new Int16Array(totalLen)
+  let offset = 0
+  for (const chunk of pcmChunks) {
+    pcm.set(chunk, offset)
+    offset += chunk.length
+  }
+  uploadForRecognition(encodeWav(pcm, 16000))
+}
+
+/** PCM 数据封装为标准 WAV Blob（44 字节头 + 16bit 单声道） */
+function encodeWav(pcm, sampleRate) {
+  const buffer = new ArrayBuffer(44 + pcm.length * 2)
+  const view = new DataView(buffer)
+  const writeStr = (off, str) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i))
+  }
+  writeStr(0, 'RIFF')
+  view.setUint32(4, 36 + pcm.length * 2, true)
+  writeStr(8, 'WAVE')
+  writeStr(12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)             // PCM 编码
+  view.setUint16(22, 1, true)             // 单声道
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, sampleRate * 2, true) // 字节率
+  view.setUint16(32, 2, true)             // 块对齐
+  view.setUint16(34, 16, true)            // 位深
+  writeStr(36, 'data')
+  view.setUint32(40, pcm.length * 2, true)
+  for (let i = 0; i < pcm.length; i++) {
+    view.setInt16(44 + i * 2, pcm[i], true)
+  }
+  return new Blob([buffer], { type: 'audio/wav' })
+}
+
+/** 上传 WAV 转写，结果填入输入框 */
+async function uploadForRecognition(wavBlob) {
+  transcribing.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', wavBlob, 'speech.wav')
+    // 覆盖实例默认的 application/json（request.js 全局设置），
+    // 置空后浏览器自动生成 multipart/form-data 及 boundary
+    const res = await request.post('/speech/stt', formData, {
+      timeout: 90000,
+      headers: { 'Content-Type': undefined },
+    })
+    const text = res.data?.text
+    if (text) {
+      inputText.value = text
+      showToast('语音已转文字', 'success')
+    } else {
+      showToast('未识别到语音内容', 'error')
+    }
+  } catch (err) {
+    showToast('语音识别失败：' + (err?.message || '网络错误'), 'error')
+  } finally {
+    transcribing.value = false
   }
 }
 </script>
@@ -1265,6 +1447,50 @@ async function toggleSpeech(msg) {
   background: #10B981;
   border-color: #10B981;
   color: #fff;
+}
+/* 麦克风录音按钮 */
+.mic-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.08);
+  color: #10B981;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.mic-btn:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+.mic-btn.recording {
+  background: #EF4444;
+  border-color: #EF4444;
+  color: #fff;
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+.mic-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.mic-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(16, 185, 129, 0.3);
+  border-top-color: #10B981;
+  border-radius: 50%;
+  animation: mic-rotate 0.8s linear infinite;
+}
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+@keyframes mic-rotate {
+  to { transform: rotate(360deg); }
 }
 /* Enhanced Markdown styles for light theme */
 .markdown-body :deep(p) {
