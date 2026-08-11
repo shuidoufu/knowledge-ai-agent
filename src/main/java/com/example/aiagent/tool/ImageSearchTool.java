@@ -3,6 +3,7 @@ package com.example.aiagent.tool;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
+import com.example.aiagent.constant.HotlinkImageConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -42,32 +43,6 @@ public class ImageSearchTool {
 
     /** 最多跟随重定向次数 */
     private static final int MAX_REDIRECTS = 5;
-
-    /**
-     * 防盗链素材站黑名单（搜索结果直接过滤）
-     * 这些站点的图片无法通过任何请求头组合正常下载（403 或返回防盗链占位图），
-     * 如遇到新的防盗链站点，追加域名即可
-     */
-    private static final java.util.List<String> BLOCKED_IMAGE_HOSTS = java.util.List.of(
-            "nipic.com",          // 昵图网：返回"昵图网防盗链"占位图
-            "51wendang.com",      // 道客巴巴：403 硬拒
-            "dfic.cn",            // 图虫
-            "veer.com",           // 海洛创意
-            "quanjing.com",       // 全景网
-            "vcg.com",            // 视觉中国
-            "58pic.com",          // 千图网
-            "zcool.com.cn"        // 站酷
-    );
-
-    /**
-     * 判断图片 URL 是否属于防盗链黑名单站点
-     *
-     * @param url 图片 URL
-     * @return 是否过滤
-     */
-    private boolean isBlockedHost(String url) {
-        return BLOCKED_IMAGE_HOSTS.stream().anyMatch(url::contains);
-    }
 
     /**
      * 搜索图片
@@ -147,7 +122,7 @@ public class ImageSearchTool {
             try {
                 // 从 JSON 中提取 murl（原始来源 URL，不带 Bing 加的白边）
                 String murl = extractJsonValue(mJson, "murl");
-                if (StrUtil.isBlank(murl) || murl.startsWith("data:") || isBlockedHost(murl)) continue;
+                if (StrUtil.isBlank(murl) || murl.startsWith("data:") || HotlinkImageConfig.isBlockedUrl(murl)) continue;
 
                 // 获取标题
                 String title = extractJsonValue(mJson, "t");
@@ -172,7 +147,7 @@ public class ImageSearchTool {
             for (Element img : imgs) {
                 if (resultSet.size() >= count) break;
                 String src = img.attr("src");
-                if (StrUtil.isBlank(src) || src.startsWith("data:") || isBlockedHost(src)) continue;
+                if (StrUtil.isBlank(src) || src.startsWith("data:") || HotlinkImageConfig.isBlockedUrl(src)) continue;
                 if (src.startsWith("//")) src = "https:" + src;
 
                 // 过滤小图标

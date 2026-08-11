@@ -20,6 +20,8 @@
 | 🛡 **统一异常降级** | 基于 AOP 注解的统一降级框架，支持重试、缓存、跳过、通知、备选五种降级策略 |
 | 🔒 **登录鉴权** | JWT Token 认证，支持注册/登录/密码修改，注册含图片验证码校验；启动时随机生成密钥，重启后旧 token 自动失效 |
 | 🎨 **现代化 UI** | 翠绿主题玻璃拟态风格，Lucide 统一图标库，流式 Markdown 渲染，RAG 来源知识卡片，移动端自适应，密码显示/隐藏切换 |
+| 🎙 **AI 回复语音播报（TTS）** | 接入百炼 CosyVoice 语音合成，AI 回复一键语音播报，长文本自动分段合成，按内容 MD5 文件缓存（重复内容秒级返回） |
+| 🎤 **麦克风语音输入（STT）** | 输入框麦克风按钮录音（Web Audio 降采样编码 WAV），接入百炼 Paraformer 实时识别，转写结果填入输入框，Ctrl+Enter 换行 |
 
 ---
 
@@ -158,7 +160,9 @@ ai-agent/
 | DELETE | `/api/ai/knowledge/chat/history/{chatId}` | 删除会话 |
 | GET | `/api/ai/manus/chat` | 超级智能体对话 |
 | GET | `/api/files/**` | 静态文件服务（访问 `tmp/` 下的 PDF、图片等） |
-| GET | `/api/image-proxy?url=` | 图片代理下载（绕过防盗链） |
+| GET | `/api/image-proxy?url=` | 图片代理下载（绕过防盗链，黑名单站点拦截） |
+| POST | `/api/speech/tts` | 文本转语音（CosyVoice，返回 MP3，内容 MD5 缓存） |
+| POST | `/api/speech/stt` | 语音转文字（Paraformer，上传 WAV 返回识别文本） |
 
 ### 🛠 Agent 工具列表
 

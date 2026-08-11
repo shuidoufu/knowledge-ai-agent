@@ -187,7 +187,7 @@
         placeholder="输入你想了解的内容..."
         rows="2"
         :disabled="loading"
-        @keydown.enter.exact.prevent="send"
+        @keydown.enter.prevent="onInputEnter"
       />
       <!-- 语音输入（麦克风录音转文字） -->
       <button
@@ -431,6 +431,8 @@ onMounted(() => {
   window.__previewImage = (src, alt) => {
     openPreview(src, alt)
   }
+  // 图片加载失败自动隐藏（DOMPurify 会剥离 img 的 onerror 属性，改用事件捕获监听）
+  document.addEventListener('error', handleImageError, true)
   // ESC 键关闭预览
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && previewImage.value.show) {
@@ -439,8 +441,17 @@ onMounted(() => {
   })
 })
 
+/** 聊天图片加载失败时隐藏（避免显示裂图） */
+function handleImageError(event) {
+  const target = event.target
+  if (target && target.tagName === 'IMG' && target.classList.contains('chat-image')) {
+    target.style.display = 'none'
+  }
+}
+
 onUnmounted(() => {
   delete window.__previewImage
+  document.removeEventListener('error', handleImageError, true)
   stopSpeech()
   if (recording.value) {
     recording.value = false
@@ -486,13 +497,35 @@ function scrollToBottom() {
   })
 }
 
+/**
+ * 输入框回车处理
+ * 纯 Enter 发送消息；Ctrl/Cmd + Enter 在光标处插入换行
+ */
+function onInputEnter(event) {
+  if (event.ctrlKey || event.metaKey) {
+    insertNewline(event)
+  } else {
+    send()
+  }
+}
+
+/** 在光标位置插入换行 */
+function insertNewline(event) {
+  const el = event.target
+  const start = el.selectionStart
+  const end = el.selectionEnd
+  inputText.value = inputText.value.slice(0, start) + '\n' + inputText.value.slice(end)
+  nextTick(() => {
+    el.selectionStart = el.selectionEnd = start + 1
+  })
+}
+
 function send() {
   const text = inputText.value.trim()
   if (!text || loading.value) return
   inputText.value = ''
   messages.value.push({ role: 'user', content: text })
   scrollToBottom()
-
   const aiIndex = messages.value.length
   messages.value.push({ role: 'assistant', content: '', references: [] })
   loading.value = true
@@ -1621,16 +1654,16 @@ async function uploadForRecognition(wavBlob) {
 	  text-decoration: underline;
 	}
 .input-area {
-	  flex-shrink: 0;
-	  padding: 1rem;
-	  border-top: 1px solid rgba(255,255,255,0.3);
-	  display: flex;
-	  gap: 0.75rem;
-	  align-items: flex-end;
-	  background: rgba(255,255,255,0.6);
-	  backdrop-filter: blur(16px);
-	  -webkit-backdrop-filter: blur(16px);
-	  box-shadow:
+  flex-shrink: 0;
+  padding: 1rem;
+  border-top: 1px solid rgba(255,255,255,0.3);
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow:
 	    0 -4px 16px rgba(16,185,129,0.04),
 	    0 0 0 1px rgba(255,255,255,0.4) inset;
 	  position: sticky;
@@ -1787,7 +1820,6 @@ async function uploadForRecognition(wavBlob) {
 .input-toolbar {
   display: flex;
   align-items: center;
-  padding: 0 0 8px 0;
   gap: 12px;
   flex-shrink: 0;
 }

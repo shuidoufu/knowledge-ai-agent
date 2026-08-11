@@ -1,6 +1,7 @@
 package com.example.aiagent.service;
 
 import cn.hutool.http.HttpRequest;
+import com.example.aiagent.constant.HotlinkImageConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -60,12 +61,17 @@ public class ImageProxyService {
 
     /**
      * 用指定 Referer 尝试下载图片
+     * 命中防盗链黑名单的 URL 直接拒绝（与搜索过滤共用 HotlinkImageConfig）
      *
      * @param url     图片 URL
      * @param referer Referer 头（空字符串表示不携带）
      * @return 下载结果，失败返回 null
      */
     private ImageFetchResult tryDownload(String url, String referer) {
+        if (HotlinkImageConfig.isBlockedUrl(url)) {
+            log.warn("图片 URL 命中防盗链黑名单，拒绝下载: {}", url);
+            return null;
+        }
         try {
             HttpRequest req = HttpRequest.get(url)
                     .setFollowRedirects(true)
