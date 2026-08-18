@@ -6,6 +6,9 @@ REM Knowledge base document preprocessor
 REM Usage: preprocess-docs.bat <input_dir> [output_dir]
 REM Default output: src\main\resources\document\yuque-sync
 
+rem 切换到项目根目录（脚本位于 script/ 子目录）
+cd /d "%~dp0.."
+
 set JAVA_HOME=E:\IDE_Extesion_plugin_so_on\JAVA_JDK17
 
 set INPUT_DIR=%1

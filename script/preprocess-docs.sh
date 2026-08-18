@@ -5,6 +5,9 @@
 
 set -e
 
+# 切换到项目根目录（脚本位于 script/ 子目录）
+cd "$(dirname "$0")/.."
+
 JAVA_HOME="E:/IDE_Extesion_plugin_so_on/JAVA_JDK17"
 export JAVA_HOME
 export MAVEN_OPTS="-Dfile.encoding=UTF-8"

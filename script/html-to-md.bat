@@ -8,6 +8,9 @@ REM   bookmarks_file: Chrome/Edge Bookmarks JSON or exported bookmarks.html (aut
 REM   input_dir:      directory of saved HTML pages
 REM Default output: src\main\resources\document
 
+rem 切换到项目根目录（脚本位于 script/ 子目录）
+cd /d "%~dp0.."
+
 set JAVA_HOME=E:\IDE_Extesion_plugin_so_on\JAVA_JDK17
 
 set INPUT_DIR=

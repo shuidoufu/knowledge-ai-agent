@@ -157,8 +157,8 @@ CTA色    → #10B981（Emerald）
 ## 📦 快速命令
 
 ```bash
-# 后端启动（本地，推荐使用脚本）
-start-backend.bat
+# 后端启动（本地，推荐使用脚本，位于 script/ 目录）
+script\start-backend.bat
 
 # 或手动执行（需设置 Java 17 + --enable-preview）
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.jvmArguments="--enable-preview"
@@ -182,7 +182,7 @@ cd frontend && npm run dev
 |------|---------|--------|
 | **后端 API** | 新增或修改的接口 | 返回 HTTP 200/201、数据结构正确、异常场景返回合理错误码 |
 | **后端编译** | 整个项目 | `mvnw compile` 无错误、`--enable-preview` 生效 |
-| **后端启动** | 整个项目 | `start-backend.bat` 或 `mvnw spring-boot:run` 启动成功，**编译通过不代表能运行**（Bean 冲突、配置问题、工具名重复等只在启动时暴露） |
+| **后端启动** | 整个项目 | `script\start-backend.bat` 或 `mvnw spring-boot:run` 启动成功，**编译通过不代表能运行**（Bean 冲突、配置问题、工具名重复等只在启动时暴露） |
 | **前端编译** | 整个前端 | `npm run build` 无错误、Vite 开发服务器无异常 |
 | **前端功能** | 新增或修改的页面/组件 | 页面正常渲染、交互逻辑正确、无控制台报错 |
 | **边界场景** | 空数据、错误输入、极端值 | 空列表显示友好提示、表单校验正常工作 |
@@ -191,7 +191,7 @@ cd frontend && npm run dev
 
 **后端重要功能（新增 Tool、修改核心逻辑等）必须进行严格测试：**
 
-1. 启动后端（`start-backend.bat`）和前端（`npm run dev`）
+1. 启动后端（`script\start-backend.bat`）和前端（`npm run dev`）
 2. **对新增/修改的 API 用 curl 或前端页面调用验证**，确认响应结果符合预期，而不是只看编译通过
 3. 检查前后端日志是否有异常报错
 4. 确认核心功能不受影响（登录、聊天、历史管理）

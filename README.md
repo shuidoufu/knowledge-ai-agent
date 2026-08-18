@@ -67,8 +67,8 @@
 ### 1️⃣ 启动后端
 
 ```bash
-# 直接运行 start-backend.bat（推荐）
-start-backend.bat
+# 直接运行 script\start-backend.bat（推荐）
+script\start-backend.bat
 
 # 或手动执行
 set JAVA_HOME=<你的 Java 17 路径>
@@ -133,6 +133,7 @@ ai-agent/
 │       ├── router/        # 路由配置
 │       ├── utils/         # 工具函数
 │       └── views/         # 页面（登录、首页、个人知识助手、超级智能体）
+├── script/                # 辅助脚本（start-backend、html-to-md、preprocess-docs）
 ├── src/main/resources/
 │   ├── application.yml    # 主配置（需自行填入 API Key）
 │   ├── prompt.yml        # AI 系统提示词
@@ -150,8 +151,8 @@ ai-agent/
 
 | 工具 | 脚本 | 用途                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 |------|------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `rag/HtmlToMarkdownConverter` | `html-to-md.bat` / `html-to-md.sh` | 三种输入：①浏览器书签文件（Chrome/Edge 的 `Bookmarks` JSON、导出的 `bookmarks.html`、Chrome 导出的 `bookmarks.md`）——自动解析书签链接并并发下载网页（可传 `--cookie` / `--cookie-file` 绕过 CSDN 等站点风控）；②网页 HTML 目录——**目录中若混有书签 HTML 会自动识别并改为书签模式**，其余网页直接转换；③单个 HTML 文件。下载的网页自动剔除导航/广告/评论区/图标图片、标题/代码块/表格转 Markdown 格式、`##` 标题前加 `---` 分割线。用法：`html-to-md.bat <书签文件或目录> [输出目录] [--cookie "xxx" / --cookie-file "文件"]` 例如：./html-to-md.bat web-notes --cookie-file "tmp/cookie.txt" |
-| `rag/DocumentPreprocessor` | `preprocess-docs.bat` / `preprocess-docs.sh` | 原始 Markdown 笔记清洗（去内联 HTML 标签、`##` 标题前加 `---` 分割线、空行压缩）。用法：`preprocess-docs.bat <输入目录> [输出目录]`|
+| `rag/HtmlToMarkdownConverter` | `script\html-to-md.bat` / `script\html-to-md.sh` | 三种输入：①浏览器书签文件（Chrome/Edge 的 `Bookmarks` JSON、导出的 `bookmarks.html`、Chrome 导出的 `bookmarks.md`）——自动解析书签链接并并发下载网页（可传 `--cookie` / `--cookie-file` 绕过 CSDN 等站点风控）；②网页 HTML 目录——**目录中若混有书签 HTML 会自动识别并改为书签模式**，其余网页直接转换；③单个 HTML 文件。下载的网页自动剔除导航/广告/评论区/图标图片、标题/代码块/表格转 Markdown 格式、`##` 标题前加 `---` 分割线。用法：`script\html-to-md.bat <书签文件或目录> [输出目录] [--cookie "xxx" / --cookie-file "文件"]` 例如：script\html-to-md.bat web-notes --cookie-file "tmp/cookie.txt" |
+| `rag/DocumentPreprocessor` | `script\preprocess-docs.bat` / `script\preprocess-docs.sh` | 原始 Markdown 笔记清洗（去内联 HTML 标签、`##` 标题前加 `---` 分割线、空行压缩）。用法：`script\preprocess-docs.bat <输入目录> [输出目录]`|
 
 转换完成后重启后端服务，文档自动增量加载到知识库。
 
