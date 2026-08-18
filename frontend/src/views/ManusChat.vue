@@ -83,6 +83,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { streamManusChat } from '../api/request'
 import { username as reactiveUsername } from '../utils/auth'
+import { linkifyHtml } from '../utils/linkify'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { ArrowLeft, ArrowRight, Square, X } from '@lucide/vue'
@@ -131,7 +132,8 @@ const userAvatarColor = computed(() => {
 	      + ` onerror="this.style.display='none'" />`
 	  }
 		  const rawHtml = marked.parse(content, { renderer, gfm: true })
-		  return DOMPurify.sanitize(rawHtml)
+		  // 清洗后把裸地址（含 /api/... 根相对路径）转为可点击链接，点击自动拼接当前站点
+		  return linkifyHtml(DOMPurify.sanitize(rawHtml))
 		}
 
 function scrollToBottom() {

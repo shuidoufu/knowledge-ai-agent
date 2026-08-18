@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -33,6 +32,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import java.util.Comparator;
 import java.util.Map;
 
 @RestController
@@ -73,8 +73,12 @@ public class AiController {
 
         // Query chats matching know_{username}_
         Query query = new Query(Criteria.where("conversationId").regex("^know_" + username + "_"));
-        query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
         List<ChatMessages> chats = mongoTemplate.find(query, ChatMessages.class, "chat_memory");
+
+        // 按修改时间倒序，最新的排在前面；旧数据无修改时间时回退到创建时间且排在最后
+        chats.sort(Comparator.comparing(
+                (ChatMessages c) -> c.getUpdatedAt() != null ? c.getUpdatedAt() : c.getCreatedAt(),
+                Comparator.reverseOrder()));
 
         List<ChatHistoryDTO> dtoList = chats.stream().map(chat -> {
             String title = chat.getTitle();
@@ -90,7 +94,7 @@ public class AiController {
                     }
                 }
             }
-            return new ChatHistoryDTO(chat.getId(), chat.getConversationId(), title, chat.getCreatedAt());
+            return new ChatHistoryDTO(chat.getId(), chat.getConversationId(), title, chat.getCreatedAt(), chat.getUpdatedAt());
         }).collect(Collectors.toList());
 
         return ResponseEntity.ok(dtoList);

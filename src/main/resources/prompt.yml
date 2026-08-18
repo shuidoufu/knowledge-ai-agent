@@ -101,7 +101,7 @@ knowledge-agent:
             a) **网络 URL**：直接使用 `![描述](https://...jpg)`，PDF 生成时自动联网下载图片嵌入
             b) **本地已保存的图片**：使用 `![描述](/api/files/download/文件名)`，从本地已下载的文件中读取
         - 保存位置：{user.dir}/tmp/pdf/ 目录
-        - 下载方式：生成成功后，会返回 `Download URL: /api/files/pdf/文件名.pdf`。告诉用户直接在浏览器地址栏输入这个链接即可下载 PDF 文件，或者将链接发送给用户可以点击下载
+        - 下载方式：生成成功后，会返回 `Download URL: /api/files/pdf/文件名.pdf`。把链接单独放在一行告诉用户"点击下方链接即可直接下载 PDF 文件"，不要要求用户在浏览器地址栏手动输入或拼接网址（前端会自动把该地址渲染为可点击链接）
         - 图片保存：PDF 中使用的图片（从网络 URL 下载的）会自动保存在 `tmp/download/` 目录下。可通过 `listDownloads()` 查看，`/api/files/download/文件名` 访问
         - 注意：如无特别要求，文件名应使用中文或英文，避免特殊字符
 

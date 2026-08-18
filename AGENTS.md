@@ -198,6 +198,14 @@ notes/       → 存放的网页收藏技术文档书签 + 语雀技术文档（
 
 42. **flex 子项默认 `min-width: auto` 会把内容挤出屏幕（聊天页"内容被裁切/挤出"头号原因）**：`KnowledgeChat` 的 `.chat-container { flex-grow: 1 }` 是 `.chat-layout`（row flex）的子项，未设 `min-width: 0` 时其 min-content 宽度由输入区决定（textarea 固有宽度 `cols` 约 190px + RAG 工具栏 + 麦克风 44 + 发送 44 + gap），在窄屏（如 375px）下容器被撑到 443px，外层 `.chat-layout { overflow: hidden }` 把右侧裁掉——**右对齐的用户气泡（`align-self: flex-end`）被切出屏幕**，表现为"用户提问和 AI 回复不在同一画面、内容被挤出"。桌面宽度充裕不触发，只在移动端暴露。**修复**：①`.chat-container` 加 `min-width: 0`；②移动端 `.input-area { flex-wrap: wrap }` + `.input-toolbar { flex: 1 1 100% }` 让 RAG 工具栏独占一行，避免和 textarea/按钮挤一行；③`.bubble-content` 加 `min-width: 0` + `overflow-wrap: anywhere`；④Markdown 表格原本无样式会撑破气泡，必须加 `.markdown-body table { display: block; overflow-x: auto }`（气泡内横向滚动）。排查手段：CDP `Emulation.setDeviceMetricsOverride` + `getBoundingClientRect()` 对比容器宽与视口宽（本机 Edge/Chrome headless 可用 `--remote-debugging-port` + Node 内置 WebSocket 驱动）
 
+43. **带 /g 标志的正则 lastIndex 跨调用残留（前端工具函数隐蔽 bug）**：模块级 `const R = /.../g` 的 `.test()`/`.exec()` 会推进 `lastIndex`，**多次调用同一函数时上次的 lastIndex 会残留到下次**——若上次匹配位置超过本次字符串长度，`.test()` 直接返回 false，函数静默跳过处理（表现为"同样的输入，有时转换有时不转换"）。**修复：每次使用前必须 `R.lastIndex = 0` 重置，或在函数入口统一重置**。本项目 `frontend/src/utils/linkify.js` 即因此踩坑（连续转换多个消息时部分 URL 不链接化）。排查手段：CDP 页面内逐步执行正则观察 lastIndex
+
+44. **聊天消息中 AI 返回的下载地址（`/api/files/pdf/xxx.pdf`）必须前端链接化**：`PDFGenerationTool` 返回根相对路径（无站点前缀），用户无法直接访问。**修复方案（前端 `src/utils/linkify.js` + `renderMarkdown`）**：在 `DOMPurify.sanitize` 之后对 HTML 文本节点做链接化——匹配 `https?://`、`www.`（补 `https://`）、`/api/` 根相对路径（点击时浏览器自动基于当前站点解析，生产环境经 nginx 同源反代同样生效），跳过 `pre`/`code`/已有 `a` 内的文本；`/api/` 前缀限制避免误转普通斜杠文本（如"1/2"）；中文文件名正常保留，但地址尾部粘连中文（如 `a.pdf。下载吧`）需按"扩展名/路径段后跟中文"启发式裁剪。不要尝试在后端拼绝对 URL（后端无法可靠知道公网域名/IP）。配套 `prompt.yml` 已改为引导 AI 输出"点击链接即可下载"，后端重启后生效
+
+45. **历史会话排序必须用 `updatedAt`（修改时间）而非 `createdAt`**：`chat_memory` 文档含 `createdAt`/`updatedAt` 两个字段；`MongoChatMemory.add()` 每次追加消息都会刷新 `updatedAt`（含用户消息和 AI 回复），所以对话后修改时间天然会更新。**历史列表（`AiController.getKnowledgeAppHistory`）必须按 `updatedAt` DESC 排序**（最新对话置顶），旧数据 `updatedAt` 为 null 时回退 `createdAt` 且排最后（用 Java `Comparator` + `nullsLast`，勿在 MongoDB 层直接 `Sort.by(updatedAt)`，null 顺序不可控）。配套：`ChatHistoryDTO` 需暴露 `updatedAt`；前端历史时间显示用 `chat.updatedAt || chat.createdAt`；`KnowledgeApp` 两个流式聊天方法在 flux `.doOnComplete` 时调用 `touchUpdatedAt(chatId)` 兜底刷新修改时间（RAG 引用持久化时同步刷新）
+
+46. **RAG 引用标注必须门控在"AI 实际引用了知识库"（引用门控）**：检索（`QuestionAnswerAdvisor` 相似度阈值 0.5）返回的切片**不等于**被 AI 使用——AI 可能明确回答"知识库中没有检索到数据"却仍附上 3 篇不相关切片引用，用户视角即为"没检索到还显示引用"。**修复（`KnowledgeApp.doChatByStreamWithRag`）**：用 `.doOnNext` 累积流式回复全文，流结束后仅当 `docs 非空 且 回复包含引用标注 [n]`（`containsCitation`，正则 `\[\d{1,2}\]`，限制 1-2 位数字避免误匹配年份如 [2026]）时才追加 `<!--RAG_REFS-->` 并持久化 references，否则 `Flux.empty()` 不下发（前端 `references.length > 0` 自然隐藏）。曾尝试过"传 `hasUsefulRefs` 标识"方案，但标识语义若仍是"docs 非空"就与 references 非空等价、解决不了问题，已还原；**判定"有用"的唯一可靠信号是 AI 回复中的 [n] 标注**（系统提示词已有引用规范引导 AI 引用时标注 [1]、[2]）。副作用：AI 用了知识库却不标 [n] 时引用会隐藏，属可接受权衡
+
 ---
 
 ## 🔑 关键配置

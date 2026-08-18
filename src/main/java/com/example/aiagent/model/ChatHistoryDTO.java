@@ -14,4 +14,5 @@ public class ChatHistoryDTO {
     private String chatId;
     private String title;
     private Instant createdAt;
+    private Instant updatedAt;
 }

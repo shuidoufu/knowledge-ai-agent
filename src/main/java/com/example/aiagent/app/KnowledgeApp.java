@@ -28,9 +28,11 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY;
 import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_RETRIEVE_SIZE_KEY;
@@ -38,6 +40,9 @@ import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvis
 @Component
 @Slf4j
 public class KnowledgeApp {
+
+    // AI 回复中的知识库引用标注，如 [1]、[2]（1-2 位数字，避免误匹配年份如 [2026]）
+    private static final Pattern CITATION_PATTERN = Pattern.compile("\\[\\d{1,2}\\]");
 
     private final ChatClient chatClient;
     // 构造函数注入系统提示词
@@ -109,7 +114,9 @@ public class KnowledgeApp {
                 // .advisors(new QuestionAnswerAdvisor(knowledgeVectorStore))
                 .tools(allTools)
                 .stream()
-                .content();
+                .content()
+                // 对话结束后刷新会话修改时间
+                .doOnComplete(() -> touchUpdatedAt(chatId));
     }
 
     /**
@@ -150,6 +157,8 @@ public class KnowledgeApp {
                 + "例如：根据你整理的笔记，知识管理的核心在于持续积累与分类[1]。"
                 + "注意：只有问题涉及知识库相关内容时才引用，日常问候或无关问题无需引用。";
 
+        // 累积流式回复内容，用于判断 AI 是否实际引用了知识库内容
+        StringBuilder streamedContent = new StringBuilder();
         Flux<String> contentFlux = chatClient
                 .prompt()
                 .user(rewriteMessage)
@@ -159,12 +168,15 @@ public class KnowledgeApp {
                 .advisors(ragAdvisor, docCaptureAdvisor)
                 .tools(allTools)
                 .stream()
-                .content();
+                .content()
+                .doOnNext(streamedContent::append);
 
         // 文本流结束后，追加引用切片信息并持久化到 MongoDB
+        // 仅当检索到内容且 AI 回复中实际引用了知识库（含 [n] 标注）时才展示引用，
+        // 避免 AI 明确说"没有检索到数据"时引用标注仍然显示
         return contentFlux.concatWith(Flux.defer(() -> {
             List<Document> docs = docCaptureAdvisor.getRetrievedDocuments();
-            if (docs != null && !docs.isEmpty()) {
+            if (docs != null && !docs.isEmpty() && containsCitation(streamedContent.toString())) {
                 List<Map<String, Object>> refs = new ArrayList<>();
                 for (int i = 0; i < docs.size(); i++) {
                     Document doc = docs.get(i);
@@ -182,6 +194,7 @@ public class KnowledgeApp {
                         // 最后一条消息是 AI 的回复
                         ChatMessages.MessageDocument lastMsg = chatDoc.getMessages().get(chatDoc.getMessages().size() - 1);
                         lastMsg.setReferences(refs);
+                        chatDoc.setUpdatedAt(Instant.now());
                         mongoTemplate.save(chatDoc, "chat_memory");
                         log.info("RAG 引用已持久化到 MongoDB: chatId={}, refs={}", chatId, refs.size());
                     }
@@ -192,9 +205,41 @@ public class KnowledgeApp {
                 String refsJson = JSONUtil.toJsonStr(refs);
                 return Flux.just("\n\n<!--RAG_REFS-->" + refsJson);
             }
-            log.info("RAG 未检索到相关文档");
+            log.info("RAG 未检索到相关文档或回复未引用知识库内容");
             return Flux.empty();
-        }));
+        // 对话结束后刷新会话修改时间
+        })).doOnComplete(() -> touchUpdatedAt(chatId));
+    }
+
+    /**
+     * 判断 AI 回复是否实际引用了知识库内容（回复中包含 [1]、[2] 等引用标注）
+     *
+     * @param content AI 回复的完整文本
+     * @return 是否包含引用标注
+     */
+    private boolean containsCitation(String content) {
+        if (content == null || content.isBlank()) {
+            return false;
+        }
+        return CITATION_PATTERN.matcher(content).find();
+    }
+
+    /**
+     * 刷新会话修改时间（对话结束后调用，用于历史会话按修改时间排序）
+     *
+     * @param chatId 聊天会话的唯一标识符
+     */
+    private void touchUpdatedAt(String chatId) {
+        try {
+            Query query = new Query(Criteria.where("conversationId").is(chatId));
+            ChatMessages chatDoc = mongoTemplate.findOne(query, ChatMessages.class, "chat_memory");
+            if (chatDoc != null) {
+                chatDoc.setUpdatedAt(Instant.now());
+                mongoTemplate.save(chatDoc, "chat_memory");
+            }
+        } catch (Exception e) {
+            log.error("刷新会话修改时间失败: chatId={}", chatId, e);
+        }
     }
 
     /**
