@@ -30,4 +30,4 @@ npm run dev
 npm run build
 ```
 
-产物在 `dist/`。生产环境请求会发往 `http://localhost:8123/api`，若部署域名不同请在 `src/api/request.js` 中修改 `BASE_URL` 或使用环境变量。
+产物在 `dist/`。生产环境请求走**同源相对路径** `/api`（`src/api/request.js` 中 `BASE_URL = ''`），由 nginx 等反向代理转发到后端；无需也不能写死后端地址（写 `http://localhost:8123` 会导致外网用户访问失败，详见 AGENTS.md 陷阱 38）。

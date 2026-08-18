@@ -495,10 +495,56 @@
 }
 
 @media (max-width: 480px) {
-  .home { padding: 1.5rem; gap: 2rem; }
+  .home { padding: 1.25rem; gap: 1.75rem; }
   .hero-title { font-size: 2rem; }
   .hero-desc { font-size: 0.9rem; }
-  .app-card { min-width: 160px; padding: 1.25rem; }
+  .apps { max-width: 100%; }
+  /* 应用卡片改为横向布局（图标左 + 文字中 + 箭头右），充分利用窄屏宽度 */
+  .app-card {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    padding: 0.9rem 1rem;
+    gap: 0.85rem;
+  }
+  .app-icon-wrap {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+  .app-icon {
+    width: 28px;
+    height: 28px;
+  }
+  .app-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .app-info h2 {
+    font-size: 1.05rem;
+    margin-bottom: 0.15rem;
+  }
+  .app-info p {
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .app-arrow {
+    margin-top: 0;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+  }
+  /* 底部脚注预留空间，避免与左下角用户模块重叠 */
+  .footnote {
+    margin-bottom: 2.5rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

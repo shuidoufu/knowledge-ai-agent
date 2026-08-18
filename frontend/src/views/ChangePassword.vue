@@ -310,4 +310,15 @@ async function submit() {
   width: 20px;
   height: 20px;
 }
+
+/* ===== 移动端适配 ===== */
+@media (max-width: 480px) {
+  .change-password-page { padding: 1rem; }
+  .card { padding: 1.5rem 1.25rem; }
+  .back-link {
+    top: calc(0.75rem + env(safe-area-inset-top));
+    left: 0.75rem;
+  }
+  .input { font-size: 1rem; }
+}
 </style>

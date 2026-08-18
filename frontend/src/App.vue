@@ -23,8 +23,8 @@
       </div>
     </Teleport>
 
-    <!-- 右上角品牌 Logo — 线形地球 -->
-    <router-link to="/" class="brand-logo" title="AI Agent 智能代理平台">
+    <!-- 右上角品牌 Logo — 线形地球（移动端聊天页隐藏，避免遮挡头部） -->
+    <router-link to="/" class="brand-logo" :class="{ 'brand-hidden': hideBrand }" title="AI Agent 智能代理平台">
       <svg viewBox="0 0 40 40" fill="none" class="brand-svg">
         <!-- 地球外轮廓 -->
         <circle cx="20" cy="20" r="14" stroke="#818cf8" stroke-width="1.3" class="globe-outline"/>
@@ -144,10 +144,22 @@ onMounted(async () => {
   }
 })
 
-// 是否显示 dock
+// ===== 移动端检测（<=768px） =====
+const isMobile = ref(false)
+function updateIsMobile() {
+  isMobile.value = window.innerWidth <= 768
+}
+
+// 是否显示 dock（移动端聊天页隐藏，避免遮挡底部输入区）
 const showDock = computed(() => {
+  if (isMobile.value && (route.path === '/knowledge' || route.path === '/manus')) return false
   if (route.path === '/knowledge') return isSidebarOpen.value
   return true // 其他页面始终显示
+})
+
+// 移动端聊天页隐藏品牌 Logo，避免遮挡页面头部
+const hideBrand = computed(() => {
+  return isMobile.value && (route.path === '/knowledge' || route.path === '/manus')
 })
 
 const loggedIn = ref(isLoggedIn())
@@ -189,8 +201,15 @@ function logout() {
   router.push('/')
 }
 
-onMounted(() => { document.addEventListener('click', handleClickOutside) })
-onUnmounted(() => { document.removeEventListener('click', handleClickOutside) })
+onMounted(() => {
+  updateIsMobile()
+  window.addEventListener('resize', updateIsMobile)
+  document.addEventListener('click', handleClickOutside)
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', updateIsMobile)
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <style>
@@ -222,13 +241,29 @@ onUnmounted(() => { document.removeEventListener('click', handleClickOutside) })
 html { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #app, .app {
-  height: 100%;
   font-family: 'Plus Jakarta Sans', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   background: var(--bg-page);
   color: var(--text-primary);
 }
-html, body { overflow-x: hidden; }
-.app { display: flex; flex-direction: column; }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+html, body, #app {
+  height: 100%;
+}
+html, body {
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* 移动端浏览器地址栏收起/展开时高度自适应 */
+  height: 100dvh;
+}
+button { touch-action: manipulation; }
 
 /* 全局头部 */
 .main-content { flex: 1; min-height: 0; }
@@ -270,6 +305,10 @@ html, body { overflow-x: hidden; }
 .brand-logo:hover {
   transform: scale(1.08) rotate(-3deg);
   box-shadow: 0 8px 28px rgba(99,102,241,0.18);
+}
+/* 移动端聊天页隐藏品牌 Logo */
+.brand-logo.brand-hidden {
+  display: none;
 }
 .brand-svg {
   width: 30px;
@@ -324,7 +363,7 @@ html, body { overflow-x: hidden; }
 .user-dock {
   position: fixed;
   left: 20px;
-  bottom: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
   z-index: 999;
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
@@ -544,7 +583,7 @@ html, body { overflow-x: hidden; }
     background: transparent;
   }
   .brand-logo {
-    top: 12px;
+    top: calc(12px + env(safe-area-inset-top));
     right: 12px;
     width: 38px;
     height: 38px;

@@ -47,10 +47,16 @@
 	      <ChevronRight v-else class="icon" size="18" />
 	    </button>
 
+    <!-- 移动端抽屉遮罩 -->
+    <div v-if="isMobile && isSidebarOpen" class="sidebar-backdrop" @click="closeSidebar"></div>
+
     <!-- Main Chat Container -->
     <div class="chat-container">
         <div class="header">
           <div class="header-left">
+            <button class="sidebar-menu-btn" @click="toggleSidebar" title="历史会话" aria-label="历史会话">
+	              <Menu class="icon" size="18" />
+	            </button>
             <button class="back-btn" @click="$router.push('/')">
 	              <ArrowLeft class="icon" size="16" />
 	              返回
@@ -127,9 +133,9 @@
             <div v-else v-html="renderMarkdown(msg.content)"></div>
             <!-- 播报按钮 + 知识库引用（分割线下方区域） -->
             <div class="speech-refs-area">
-              <!-- 语音播报按钮 -->
+              <!-- 语音播报按钮（当前隐藏） -->
               <button
-                v-if="msg.content && !(loading && i === messages.length - 1)"
+                v-if="false"
                 class="speech-btn"
                 :class="{ speaking: msg._speaking }"
                 @click="toggleSpeech(msg)"
@@ -204,11 +210,11 @@
       <button class="send-btn" :class="{ 'stop-btn': loading }" :disabled="loading ? false : !inputText.trim()" @click="loading ? stopStream() : send()">
 	        <template v-if="loading">
 	          <Square class="btn-icon" size="18" />
-	          终止
+	          <span class="btn-text">终止</span>
 	        </template>
 	        <template v-else>
 	          <ArrowRight class="btn-icon" size="18" />
-	          发送
+	          <span class="btn-text">发送</span>
 	        </template>
 	      </button>
     </div>
@@ -249,7 +255,7 @@ import { streamKnowledgeChat, streamKnowledgeChatRag, request, updateChatTitle, 
 import { username as reactiveUsername } from '../utils/auth'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ArrowLeft, Search, ChevronDown, ArrowRight, Square, X, FileText, Volume2, VolumeX, Mic, MicOff } from '@lucide/vue'
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ArrowLeft, Search, ChevronDown, ArrowRight, Square, X, FileText, Volume2, VolumeX, Mic, MicOff, Menu } from '@lucide/vue'
 
 const chatId = ref('')
 const messages = ref([])
@@ -265,6 +271,12 @@ const ragEnabled = ref(true)
 const isSidebarOpen = inject('isSidebarOpen', ref(true))
 const setSidebarOpen = inject('setSidebarOpen', (v) => {})
 const showToast = inject('showToast', () => {})
+
+// 移动端检测（<=768px）
+const isMobile = ref(false)
+function updateIsMobile() {
+  isMobile.value = window.innerWidth <= 768
+}
 
 // History state
 const historyList = ref([])
@@ -320,7 +332,7 @@ async function fetchHistoryList() {
 
 async function loadHistoryChat(loadChatId) {
   if (chatId.value === loadChatId) return
-  if (window.innerWidth <= 768) {
+  if (isMobile.value) {
     isSidebarOpen.value = false
   }
   // 切换会话时清空输入框，避免残留内容误发到其他会话
@@ -343,7 +355,7 @@ async function loadHistoryChat(loadChatId) {
 function createNewChat() {
   chatId.value = generateChatId()
   messages.value = []
-  if (window.innerWidth <= 768) {
+  if (isMobile.value) {
     isSidebarOpen.value = false
   }
 }
@@ -351,6 +363,11 @@ function createNewChat() {
 // 侧边栏切换（同步到 App.vue）
 function toggleSidebar() {
   isSidebarOpen.value = !isSidebarOpen.value
+}
+
+// 关闭侧边栏（移动端抽屉遮罩点击）
+function closeSidebar() {
+  isSidebarOpen.value = false
 }
 
 // 编辑标题
@@ -424,8 +441,11 @@ async function doDeleteChat(deleteId) {
 onMounted(() => {
   chatId.value = generateChatId()
   fetchHistoryList()
-  
-  if (window.innerWidth <= 768) {
+
+  updateIsMobile()
+  window.addEventListener('resize', updateIsMobile)
+
+  if (isMobile.value) {
     isSidebarOpen.value = false
   }
 
@@ -452,6 +472,7 @@ function handleImageError(event) {
 }
 
 onUnmounted(() => {
+  window.removeEventListener('resize', updateIsMobile)
   delete window.__previewImage
   document.removeEventListener('error', handleImageError, true)
   stopSpeech()
@@ -529,7 +550,7 @@ function send() {
   messages.value.push({ role: 'user', content: text })
   scrollToBottom()
   const aiIndex = messages.value.length
-  messages.value.push({ role: 'assistant', content: '', references: [] })
+  messages.value.push({ role: 'assistant', content: '', references: [], _refsCollapsed: true })
   loading.value = true
 
   // 创建 AbortController 用于终止请求
@@ -857,6 +878,17 @@ async function uploadForRecognition(wavBlob) {
 .sidebar:not(.sidebar-open) {
   margin-left: -260px;
   border-right: none;
+}
+
+/* 移动端抽屉遮罩（点击关闭侧边栏） */
+.sidebar-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.3);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 15;
+  animation: fadeIn 0.2s ease;
 }
 
 .sidebar-header {
@@ -1213,6 +1245,8 @@ async function uploadForRecognition(wavBlob) {
   position: relative;
   background: #f5f7fb;
   min-height: 0;
+  /* 允许收缩到容器宽度以内（防止输入区/内容把容器撑宽导致右侧被裁切） */
+  min-width: 0;
 }
 
 .header {
@@ -1236,6 +1270,30 @@ async function uploadForRecognition(wavBlob) {
   gap: 12px;
   min-width: 0;
   flex-shrink: 1;
+}
+
+/* 移动端侧边栏开关按钮（桌面隐藏，移动端显示） */
+.sidebar-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 12px;
+  background: rgba(16,185,129,0.08);
+  color: #10B981;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.sidebar-menu-btn:hover {
+  background: rgba(16,185,129,0.15);
+  color: #059669;
+}
+.sidebar-menu-btn .icon {
+  width: 20px;
+  height: 20px;
 }
 .header-right {
   display: flex;
@@ -1434,8 +1492,10 @@ async function uploadForRecognition(wavBlob) {
   border-radius: 14px;
   white-space: normal;
   word-break: break-word;
+  overflow-wrap: anywhere;
   text-align: left;
   line-height: 1.8;
+  min-width: 0;
 }
 .streaming-text {
   white-space: pre-wrap;
@@ -1655,6 +1715,30 @@ async function uploadForRecognition(wavBlob) {
 	  color: #10B981;
 	  text-decoration: underline;
 	}
+/* Markdown 表格：超出宽度时气泡内横向滚动，不撑破布局 */
+.markdown-body :deep(table) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin-bottom: 0.8em;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 0.4em 0.6em;
+  text-align: left;
+  white-space: normal;
+  word-break: break-word;
+}
+.markdown-body :deep(th) {
+  background: rgba(16, 185, 129, 0.06);
+  font-weight: 600;
+  color: #065F46;
+}
 .input-area {
   flex-shrink: 0;
   padding: 1rem;
@@ -1767,6 +1851,44 @@ async function uploadForRecognition(wavBlob) {
   }
   .chat-id-display {
     display: none;
+  }
+  /* 移动端头部：显示侧边栏开关，返回按钮紧凑 */
+  .sidebar-menu-btn {
+    display: flex;
+  }
+  .back-btn {
+    padding: 6px 10px;
+  }
+  /* 移动端发送按钮：仅图标，节省横向空间 */
+  .send-btn {
+    padding: 0;
+    width: 44px;
+    justify-content: center;
+  }
+  .btn-text {
+    display: none;
+  }
+  /* 移动端消息区与输入区适配 */
+  .messages {
+    padding: 1rem 0.75rem;
+    gap: 1rem;
+  }
+  .message-row {
+    max-width: 96%;
+  }
+  /* 移动端输入区：RAG 工具栏独占一行，输入框/按钮换行排布，避免内容被挤出 */
+  .input-area {
+    flex-wrap: wrap;
+    padding: 0.75rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
+  .input-toolbar {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  /* iOS 聚焦输入框不自动放大（<16px 会触发） */
+  .input-area textarea {
+    font-size: 1rem;
   }
 }
 

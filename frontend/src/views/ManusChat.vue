@@ -59,11 +59,11 @@
       <button class="send-btn" :class="{ 'stop-btn': loading }" :disabled="loading ? false : !inputText.trim()" @click="loading ? stopStream() : send()">
 	        <template v-if="loading">
 	          <Square class="btn-icon" size="18" />
-	          终止
+	          <span class="btn-text">终止</span>
 	        </template>
 	        <template v-else>
 	          <ArrowRight class="btn-icon" size="18" />
-	          发送
+	          <span class="btn-text">发送</span>
 	        </template>
 	      </button>
     </div>
@@ -374,8 +374,10 @@ onUnmounted(() => {
   border-radius: 14px;
   white-space: normal;
   word-break: break-word;
+  overflow-wrap: anywhere;
   text-align: left;
   line-height: 1.8;
+  min-width: 0;
 }
 .streaming-text {
   white-space: pre-wrap;
@@ -525,6 +527,30 @@ onUnmounted(() => {
 	  color: #10B981;
 	  text-decoration: underline;
 	}
+/* Markdown 表格：超出宽度时气泡内横向滚动，不撑破布局 */
+.markdown-body :deep(table) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin-bottom: 0.8em;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 0.4em 0.6em;
+  text-align: left;
+  white-space: normal;
+  word-break: break-word;
+}
+.markdown-body :deep(th) {
+  background: rgba(16, 185, 129, 0.06);
+  font-weight: 600;
+  color: #065F46;
+}
 .input-area {
 	  flex-shrink: 0;
 	  padding: 1rem;
@@ -665,5 +691,39 @@ onUnmounted(() => {
 @keyframes modalSlideUp {
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* ===== 移动端适配 ===== */
+@media (max-width: 768px) {
+  .chat-header {
+    padding: 0 0.75rem;
+  }
+  .back {
+    padding: 6px 10px;
+  }
+  /* 发送按钮仅图标，节省横向空间 */
+  .send-btn {
+    padding: 0;
+    width: 44px;
+    justify-content: center;
+  }
+  .btn-text {
+    display: none;
+  }
+  /* 消息区与输入区适配 */
+  .messages {
+    padding: 1rem 0.75rem;
+    gap: 1rem;
+  }
+  .message-row {
+    max-width: 96%;
+  }
+  /* iOS 聚焦输入框不自动放大（<16px 会触发） */
+  .input-area textarea {
+    font-size: 1rem;
+  }
+  .input-area {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
 }
 </style>
