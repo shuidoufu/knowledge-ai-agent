@@ -165,6 +165,31 @@ public class AiController {
     }
 
     /**
+     * 批量删除会话
+     */
+    @PostMapping("/knowledge/chat/history/batch-delete")
+    public ResponseEntity<Map<String, Object>> batchDeleteChats(@RequestBody Map<String, List<String>> body,
+            HttpServletRequest request) {
+        String username = getUsernameFromRequest(request);
+        if (username == null) {
+            return ResponseEntity.status(401).build();
+        }
+        List<String> chatIds = body != null ? body.get("chatIds") : null;
+        if (chatIds == null || chatIds.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "chatIds 不能为空"));
+        }
+        // 仅允许删除当前用户自己的会话
+        boolean allOwned = chatIds.stream()
+                .allMatch(id -> id != null && id.startsWith("know_" + username + "_"));
+        if (!allOwned) {
+            return ResponseEntity.status(403).build();
+        }
+        Query query = new Query(Criteria.where("conversationId").in(chatIds));
+        long deleted = mongoTemplate.remove(query, ChatMessages.class, "chat_memory").getDeletedCount();
+        return ResponseEntity.ok(Map.of("message", "已删除 " + deleted + " 个会话", "deleted", deleted));
+    }
+
+    /**
      * 同步调用知识助手应用
      */
     @GetMapping("/knowledge/chat/sync")

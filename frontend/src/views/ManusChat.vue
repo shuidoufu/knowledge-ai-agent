@@ -7,7 +7,7 @@
 	      </router-link>
       <h1>AI 超级智能体</h1>
     </header>
-    <div class="messages" ref="messagesRef">
+    <div class="messages" ref="messagesRef" @click="handleMessagesClick">
       <div
         v-for="(msg, i) in messages"
         :key="i"
@@ -80,13 +80,16 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, inject } from 'vue'
 import { streamManusChat } from '../api/request'
 import { username as reactiveUsername } from '../utils/auth'
 import { linkifyHtml } from '../utils/linkify'
+import { previewImage, openPreview, closePreview } from '../utils/previewImage'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { ArrowLeft, ArrowRight, Square, X } from '@lucide/vue'
+
+const showToast = inject('showToast', () => {})
 
 const messages = ref([])
 const inputText = ref('')
@@ -94,13 +97,10 @@ const loading = ref(false)
 const messagesRef = ref(null)
 const abortController = ref(null)
 
-// 图片预览状态
-const previewImage = ref({ show: false, src: '', alt: '' })
-function openPreview(src, alt) {
-  previewImage.value = { show: true, src, alt }
-}
-function closePreview() {
-  previewImage.value = { show: false, src: '', alt: '' }
+// 移动端检测（<=768px）
+const isMobile = ref(false)
+function updateIsMobile() {
+  isMobile.value = window.innerWidth <= 768
 }
 
 const userAvatarLetter = computed(() => {
@@ -123,14 +123,13 @@ const userAvatarColor = computed(() => {
 		  renderer.link = ({ href, title, text }) => `<a target="_blank" href="${href}" title="${title || ''}">${text}</a>`
 		  renderer.heading = ({ depth, text }) => `<h${depth}>${text}</h${depth}>`
 		  renderer.del = ({ text }) => text
-		  renderer.image = ({ href, title, text }) => {
-	    const escapedSrc = encodeURIComponent(href)
-	    const escapedAlt = text ? text.replace(/"/g, '&quot;') : ''
-	    return `<img src="/api/image-proxy?url=${escapedSrc}" alt="${escapedAlt}" class="chat-image" loading="lazy"`
-	      + ` style="width:100%;height:auto;display:block;border-radius:8px;margin:4px 0;"`
-	      + ` onclick="window.__previewImage && window.__previewImage(this.src, this.alt)"`
-	      + ` onerror="this.style.display='none'" />`
-	  }
+			  renderer.image = ({ href, title, text }) => {
+		    const escapedSrc = encodeURIComponent(href)
+		    const escapedAlt = text ? text.replace(/"/g, '&quot;') : ''
+		    // 通过后端代理加载图片，绕过防盗链；预览由消息区 click 事件委托处理（DOMPurify 会剥离内联 onclick）
+		    return `<img src="/api/image-proxy?url=${escapedSrc}" alt="${escapedAlt}" class="chat-image" loading="lazy"`
+		      + ` style="width:100%;height:auto;display:block;border-radius:8px;margin:4px 0;" />`
+		  }
 		  const rawHtml = marked.parse(content, { renderer, gfm: true })
 		  // 清洗后把裸地址（含 /api/... 根相对路径）转为可点击链接，点击自动拼接当前站点
 		  return linkifyHtml(DOMPurify.sanitize(rawHtml))
@@ -188,20 +187,30 @@ function stopStream() {
 }
 
 onMounted(() => {
-  // 注册全局图片预览函数（供 Markdown 渲染的 img onclick 调用）
-  window.__previewImage = (src, alt) => {
-    openPreview(src, alt)
-  }
-  // ESC 键关闭预览
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && previewImage.value.show) {
-      closePreview()
-    }
-  })
+  updateIsMobile()
+  window.addEventListener('resize', updateIsMobile)
+  // ESC 键关闭预览（具名 handler，卸载时移除）
+  document.addEventListener('keydown', handleKeydown)
 })
 
+/** ESC 键关闭图片预览 */
+function handleKeydown(e) {
+  if (e.key === 'Escape' && previewImage.value.show) {
+    closePreview()
+  }
+}
+
+/** 消息区点击：图片放大预览（事件委托，避免依赖 DOMPurify 保留内联事件属性） */
+function handleMessagesClick(e) {
+  const img = e.target?.closest?.('img.chat-image')
+  if (img) {
+    openPreview(img.getAttribute('src') || '', img.getAttribute('alt') || '')
+  }
+}
+
 onUnmounted(() => {
-  delete window.__previewImage
+  window.removeEventListener('resize', updateIsMobile)
+  document.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -639,11 +648,13 @@ onUnmounted(() => {
 
 /* 聊天图片样式 — 使用非 scoped 样式确保匹配 v-html 内容 */
 
-/* 图片预览弹窗 */
+/* 图片预览弹窗（背景半透明黑 + 虚化） */
 .image-preview-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -3,46 +3,89 @@
     <!-- Sidebar -->
     <div class="sidebar" :class="{ 'sidebar-open': isSidebarOpen }">
       <div class="sidebar-header">
-        <h3>历史会话</h3>
-        <button class="new-chat-btn" @click="createNewChat">
+        <h3>历史对话</h3>
+        <button v-if="!batchMode" class="new-chat-btn" @click="createNewChat">
 	          <Plus class="icon" size="16" />
 	          新对话
 	        </button>
       </div>
-      <div class="history-list" v-if="historyList.length > 0">
+      <div class="history-list" v-if="historyList.length > 0" @scroll="menuChatId = ''">
         <div 
           v-for="chat in historyList" 
           :key="chat.chatId"
           class="history-item"
-          :class="{ active: chat.chatId === chatId }"
+          :class="{ active: chat.chatId === chatId && !batchMode, 'batch-mode': batchMode }"
         >
-          <div class="history-item-main" @click="loadHistoryChat(chat.chatId)">
-            <!-- 编辑标题模式 -->
-            <template v-if="editingChatId === chat.chatId">
-              <input class="edit-title-input" v-model="editTitleText" @keydown.enter.prevent="saveTitle(chat.chatId)" @keydown.escape.prevent="cancelEdit" @blur="saveTitle(chat.chatId)" @click.stop autofocus />
-            </template>
-            <template v-else>
-              <div class="history-title">{{ chat.title }}</div>
-              <div class="history-time">{{ new Date(chat.updatedAt || chat.createdAt).toLocaleString() }}</div>
-            </template>
+          <div class="history-item-main" :class="{ 'batch-select': batchMode }" @click="batchMode ? toggleSelectChat(chat.chatId) : loadHistoryChat(chat.chatId)">
+            <div class="history-title">{{ chat.title }}</div>
+            <div class="history-time">{{ new Date(chat.updatedAt || chat.createdAt).toLocaleString() }}</div>
           </div>
-          <div class="history-item-actions">
-            <button class="history-action-btn edit" @mousedown.prevent.stop="startEditTitle(chat)" title="编辑标题">
-	              <Pencil class="icon" size="16" />
-	            </button>
-	            <button class="history-action-btn delete" @click.stop="confirmDeleteChatId = chat.chatId" title="删除会话">
-	              <Trash2 class="icon" size="16" />
-	            </button>
+          <!-- 非批量模式：三点按钮（菜单经 Teleport 渲染到 body，避免被列表滚动容器裁剪） -->
+          <div v-if="!batchMode" class="history-more-wrap">
+            <button class="history-more-btn" @click.stop="toggleMenu(chat.chatId, $event)" title="更多操作" aria-label="更多操作">
+              <MoreVertical class="icon" size="18" />
+            </button>
+          </div>
+          <!-- 批量模式：勾选圆圈 -->
+          <div v-else class="batch-check-wrap" @click.stop="toggleSelectChat(chat.chatId)">
+            <span v-if="selectedChatIds.includes(chat.chatId)" class="batch-circle selected">
+              <Check class="icon" size="14" />
+            </span>
+            <span v-else class="batch-circle"></span>
           </div>
         </div>
       </div>
       <div class="history-empty" v-else>
         暂无历史记录
       </div>
+      <!-- 移动端底部个人信息卡片（批量管理模式隐藏；桌面端已由 user-dock 承担，不显示） -->
+      <div v-if="isMobile && !batchMode" class="sidebar-footer">
+        <div class="profile-card">
+          <div class="profile-info">
+            <div class="profile-avatar"><span class="profile-avatar-letter">{{ userAvatarLetter }}</span></div>
+            <span class="profile-name">{{ reactiveUsername }}</span>
+          </div>
+          <div class="profile-actions">
+            <button class="profile-action-btn" @click="goChangePassword" title="修改密码">
+              <Lock class="profile-action-icon" size="16" />
+              修改密码
+            </button>
+            <button class="profile-action-btn" @click="logout" title="退出登录">
+              <LogOut class="profile-action-icon" size="16" />
+              退出登录
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- 批量管理模式底部按钮条（取消 / 删除(N)） -->
+      <div v-if="batchMode" class="batch-bar">
+        <button class="batch-bar-btn" @click="exitBatchMode">取消</button>
+        <button class="batch-bar-btn delete" :disabled="selectedChatIds.length === 0" @click="confirmBatchDelete = true">
+          删除 ({{ selectedChatIds.length }})
+        </button>
+      </div>
     </div>
 
+    <!-- 三点菜单（Teleport 到 body：fixed 定位，脱离历史列表滚动容器，任何情况下不被裁剪/遮挡） -->
+    <Teleport to="body">
+      <div v-if="menuChatId" class="history-menu-fixed" :style="menuStyle">
+        <button class="history-menu-item" @click.stop="onBatchManage">
+          <ListChecks class="menu-icon" size="18" />
+          批量管理
+        </button>
+        <button class="history-menu-item" @click.stop="onEditTitle(menuChatChat)">
+          <Pencil class="menu-icon" size="18" />
+          修改标题
+        </button>
+        <button class="history-menu-item danger" @click.stop="openDeleteConfirm(menuChatId)">
+          <Trash2 class="menu-icon" size="18" />
+          删除对话
+        </button>
+      </div>
+    </Teleport>
+
     <!-- 侧边栏边缘切换按钮 -->
-    <button class="toggle-sidebar-btn" :class="{ collapsed: !isSidebarOpen }" @click="toggleSidebar" :title="isSidebarOpen ? '收起历史会话' : '展开历史会话'">
+    <button class="toggle-sidebar-btn" :class="{ collapsed: !isSidebarOpen }" @click="toggleSidebar" :title="isSidebarOpen ? '收起历史对话' : '展开历史对话'">
 	      <ChevronLeft v-if="isSidebarOpen" class="icon" size="18" />
 	      <ChevronRight v-else class="icon" size="18" />
 	    </button>
@@ -54,7 +97,7 @@
     <div class="chat-container">
         <div class="header">
           <div class="header-left">
-            <button class="sidebar-menu-btn" @click="toggleSidebar" title="历史会话" aria-label="历史会话">
+            <button class="sidebar-menu-btn" @click="toggleSidebar" title="历史对话" aria-label="历史对话">
 	              <Menu class="icon" size="18" />
 	            </button>
             <button class="back-btn" @click="$router.push('/')">
@@ -67,7 +110,7 @@
           <span class="chat-id-display">{{ chatId }}</span>
         </div>
       </div>
-    <div class="messages" ref="messagesRef">
+    <div class="messages" ref="messagesRef" @click="handleMessagesClick">
       <!-- 空状态欢迎语 -->
 	      <div v-if="messages.length === 0" class="welcome">
 	        <div class="welcome-icon-wrap">
@@ -224,14 +267,45 @@
     <Teleport to="body">
       <div v-if="confirmDeleteChatId" class="modal-overlay" @click="confirmDeleteChatId = ''">
         <div class="modal-content" @click.stop>
-          <div class="modal-icon">
-	            <Trash2 class="icon" size="24" />
-	          </div>
-          <div class="modal-title">删除会话</div>
-          <div class="modal-desc">确定要删除这个会话吗？删除后无法恢复。</div>
+          <div class="modal-title">删除对话</div>
+          <div class="modal-desc">确定要删除这个对话吗？删除后无法恢复。</div>
           <div class="modal-actions">
             <button class="modal-btn cancel" @click="confirmDeleteChatId = ''">取消</button>
             <button class="modal-btn confirm" @click="doDeleteChat(confirmDeleteChatId)">确认删除</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 修改标题弹窗 -->
+    <Teleport to="body">
+      <div v-if="editTitleVisible" class="modal-overlay" @click="closeEditTitle">
+        <div class="modal-content" @click.stop>
+          <div class="modal-title left">修改标题</div>
+          <input
+            class="edit-title-input modal-title-input"
+            v-model="editTitleText"
+            @keyup.enter="confirmEditTitle"
+            @keyup.escape="closeEditTitle"
+            autofocus
+          />
+          <div class="modal-actions">
+            <button class="modal-btn cancel" @click="closeEditTitle">取消</button>
+            <button class="modal-btn confirm green" @click="confirmEditTitle">确定</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 批量删除确认弹窗 -->
+    <Teleport to="body">
+      <div v-if="confirmBatchDelete" class="modal-overlay" @click="confirmBatchDelete = false">
+        <div class="modal-content" @click.stop>
+          <div class="modal-title left">删除对话记录</div>
+          <div class="modal-desc left">删除后内容将无法恢复，确认删除选中记录？</div>
+          <div class="modal-actions">
+            <button class="modal-btn cancel" @click="confirmBatchDelete = false">取消</button>
+            <button class="modal-btn confirm" @click="doBatchDelete">删除</button>
           </div>
         </div>
       </div>
@@ -251,12 +325,16 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted, inject } from 'vue'
-import { streamKnowledgeChat, streamKnowledgeChatRag, request, updateChatTitle, deleteChat } from '../api/request'
-import { username as reactiveUsername } from '../utils/auth'
+import { useRouter } from 'vue-router'
+import { streamKnowledgeChat, streamKnowledgeChatRag, request, updateChatTitle, deleteChat, batchDeleteChats } from '../api/request'
+import { username as reactiveUsername, removeToken } from '../utils/auth'
 import { linkifyHtml } from '../utils/linkify'
+import { previewImage, openPreview, closePreview } from '../utils/previewImage'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ArrowLeft, Search, ChevronDown, ArrowRight, Square, X, FileText, Volume2, VolumeX, Mic, MicOff, Menu } from '@lucide/vue'
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ArrowLeft, Search, ChevronDown, ArrowRight, Square, X, FileText, Volume2, VolumeX, Mic, MicOff, Menu, Lock, LogOut, MoreVertical, ListChecks, Check } from '@lucide/vue'
+
+const router = useRouter()
 
 const chatId = ref('')
 const messages = ref([])
@@ -272,6 +350,8 @@ const ragEnabled = ref(true)
 const isSidebarOpen = inject('isSidebarOpen', ref(true))
 const setSidebarOpen = inject('setSidebarOpen', (v) => {})
 const showToast = inject('showToast', () => {})
+// 批量管理模式（App.vue 据此隐藏 user-dock，避免遮挡侧边栏底部按钮条）
+const chatBatchMode = inject('chatBatchMode', ref(false))
 
 // 移动端检测（<=768px）
 const isMobile = ref(false)
@@ -282,20 +362,22 @@ function updateIsMobile() {
 // History state
 const historyList = ref([])
 
-// 编辑标题状态
-const editingChatId = ref('')
+// 编辑标题弹窗状态
+const editTitleVisible = ref(false)
 const editTitleText = ref('')
+let editTitleTargetId = ''
 // 删除确认状态
 const confirmDeleteChatId = ref('')
+// 三点菜单状态（Teleport 到 body，fixed 定位，位置由菜单项视口坐标计算）
+const menuChatId = ref('')
+const menuStyle = ref({ top: '0px', left: '0px' })
+const menuChatChat = computed(() => historyList.value.find(c => c.chatId === menuChatId.value))
+// 批量管理模式状态
+const batchMode = ref(false)
+const selectedChatIds = ref([])
+const confirmBatchDelete = ref(false)
 
-// 图片预览状态
-const previewImage = ref({ show: false, src: '', alt: '' })
-function openPreview(src, alt) {
-  previewImage.value = { show: true, src, alt }
-}
-function closePreview() {
-  previewImage.value = { show: false, src: '', alt: '' }
-}
+// 图片预览状态（共享单例，见 utils/previewImage.js）
 
 // 当前会话标题
 const currentChatTitle = computed(() => {
@@ -307,14 +389,6 @@ const currentChatTitle = computed(() => {
 const userAvatarLetter = computed(() => {
   const name = reactiveUsername.value
   return name ? name.trim().charAt(0).toUpperCase() : '?'
-})
-const userAvatarColor = computed(() => {
-  const name = reactiveUsername.value
-  if (!name) return '#64748b'
-  let n = 0
-  for (let i = 0; i < name.length; i++) n += name.charCodeAt(i)
-  const hues = ['#6366f1', '#8b5cf6', '#0D9488', '#ef4444', '#f97316', '#22c56e', '#14b8a6', '#3b82f6']
-  return hues[n % hues.length]
 })
 
 function generateChatId() {
@@ -371,54 +445,109 @@ function closeSidebar() {
   isSidebarOpen.value = false
 }
 
-// 编辑标题
-function startEditTitle(chat) {
-  // 如果已在编辑此会话：保存并退出编辑模式
-  if (editingChatId.value === chat.chatId) {
-    saveTitleImmediate(chat.chatId)
-    return
-  }
-  // 如果正在编辑另一个会话，先保存
-  if (editingChatId.value) {
-    saveTitleImmediate(editingChatId.value)
-  }
-  // 进入编辑模式
-  editingChatId.value = chat.chatId
+// 三点菜单：打开/关闭（菜单 Teleport 到 body，用视口坐标计算 fixed 位置；下方空间不足自动向上展开）
+function toggleMenu(chatId, event) {
+  const opening = menuChatId.value !== chatId
+  menuChatId.value = opening ? chatId : ''
+  if (!opening) return
+  const item = event?.currentTarget?.closest?.('.history-item')
+  nextTick(() => {
+    const menuEl = document.querySelector('.history-menu-fixed')
+    const rect = item?.getBoundingClientRect()
+    if (!rect || !menuEl) return
+    const menuHeight = menuEl.offsetHeight
+    const gap = 8
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    const up = spaceBelow - gap < menuHeight && spaceAbove - gap >= menuHeight
+    const top = up ? rect.top - gap - menuHeight : rect.bottom + gap
+    const left = Math.max(8, rect.right - gap - 160)
+    menuStyle.value = { top: top + 'px', left: left + 'px' }
+  })
+}
+
+// 三点菜单：进入批量管理模式
+function onBatchManage() {
+  menuChatId.value = ''
+  batchMode.value = true
+  selectedChatIds.value = []
+  chatBatchMode.value = true
+}
+
+// 三点菜单：打开修改标题弹窗（预填当前标题）
+function onEditTitle(chat) {
+  menuChatId.value = ''
+  editTitleTargetId = chat.chatId
   editTitleText.value = chat.title
+  editTitleVisible.value = true
 }
-function cancelEdit() {
-  editingChatId.value = ''
-  editTitleText.value = ''
+
+// 关闭修改标题弹窗
+function closeEditTitle() {
+  editTitleVisible.value = false
 }
-async function saveTitle(chatIdToSave) {
-  // 如果已经退出编辑模式（例如由 mousedown 处理），跳过 blur 回调
-  if (editingChatId.value !== chatIdToSave) return
+
+// 确定修改标题：校验非空后调用接口，成功刷新列表
+async function confirmEditTitle() {
   const title = editTitleText.value.trim()
   if (!title) {
-    editingChatId.value = ''
-    return
-  }
-  // If title hasn't changed, just close edit
-  const original = historyList.value.find(c => c.chatId === chatIdToSave)?.title
-  if (title === original) {
-    editingChatId.value = ''
-    return
-  }
-  await saveTitleImmediate(chatIdToSave)
-}
-async function saveTitleImmediate(chatIdToSave) {
-  const title = editTitleText.value.trim()
-  if (!title) {
-    editingChatId.value = ''
+    showToast('标题不能为空', 'error')
     return
   }
   try {
-    await updateChatTitle(chatIdToSave, title)
-    editingChatId.value = ''
+    await updateChatTitle(editTitleTargetId, title)
+    editTitleVisible.value = false
     fetchHistoryList()
+    showToast('标题更新成功', 'success')
   } catch (error) {
     console.error('Failed to update title:', error)
-    editingChatId.value = ''
+    showToast('标题更新失败，请重试', 'error')
+  }
+}
+
+// 三点菜单：打开单体删除确认弹窗（复用现有弹窗）
+function openDeleteConfirm(chatId) {
+  menuChatId.value = ''
+  confirmDeleteChatId.value = chatId
+}
+
+// 批量模式：选中/取消选中会话
+function toggleSelectChat(chatId) {
+  const idx = selectedChatIds.value.indexOf(chatId)
+  if (idx >= 0) {
+    selectedChatIds.value.splice(idx, 1)
+  } else {
+    selectedChatIds.value.push(chatId)
+  }
+}
+
+// 批量模式：退出并清空选中
+function exitBatchMode() {
+  batchMode.value = false
+  selectedChatIds.value = []
+  confirmBatchDelete.value = false
+  chatBatchMode.value = false
+}
+
+// 批量删除确认后执行：调用接口，成功后刷新列表（当前会话被删则新建）
+async function doBatchDelete() {
+  const ids = selectedChatIds.value
+  if (ids.length === 0) return
+  try {
+    const res = await batchDeleteChats(ids)
+    const deleted = res.data?.deleted ?? ids.length
+    confirmBatchDelete.value = false
+    exitBatchMode()
+    if (ids.includes(chatId.value)) {
+      createNewChat()
+    }
+    fetchHistoryList()
+    showToast(`已删除 ${deleted} 个会话`, 'success')
+  } catch (error) {
+    console.error('Failed to batch delete chats:', error)
+    confirmBatchDelete.value = false
+    exitBatchMode()
+    showToast('批量删除失败，请重试', 'error')
   }
 }
 
@@ -446,23 +575,31 @@ onMounted(() => {
   updateIsMobile()
   window.addEventListener('resize', updateIsMobile)
 
+  // 从修改密码页返回时保持侧边栏打开（进入时打的标记，读取后立即清除防止残留误开）
   if (isMobile.value) {
-    isSidebarOpen.value = false
+    isSidebarOpen.value = sessionStorage.getItem('return_to_knowledge') === '1'
+    sessionStorage.removeItem('return_to_knowledge')
   }
 
-  // 注册全局图片预览函数（供 Markdown 渲染的 img onclick 调用）
-  window.__previewImage = (src, alt) => {
-    openPreview(src, alt)
-  }
   // 图片加载失败自动隐藏（DOMPurify 会剥离 img 的 onerror 属性，改用事件捕获监听）
   document.addEventListener('error', handleImageError, true)
-  // ESC 键关闭预览
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && previewImage.value.show) {
-      closePreview()
-    }
-  })
+  // ESC 键关闭预览（具名 handler，卸载时移除）
+  document.addEventListener('keydown', handleKeydown)
+  // 点击外部关闭三点菜单
+  document.addEventListener('click', handleMenuOutsideClick)
 })
+
+/** 点击历史对话外的空白处关闭三点菜单 */
+function handleMenuOutsideClick() {
+  menuChatId.value = ''
+}
+
+/** ESC 键关闭图片预览 */
+function handleKeydown(e) {
+  if (e.key === 'Escape' && previewImage.value.show) {
+    closePreview()
+  }
+}
 
 /** 聊天图片加载失败时隐藏（避免显示裂图） */
 function handleImageError(event) {
@@ -472,10 +609,38 @@ function handleImageError(event) {
   }
 }
 
+// 长按图片保存逻辑已移除（点击图片放大预览由 handleMessagesClick 事件委托处理）
+
+/** 消息区点击：图片放大预览（事件委托，避免依赖 DOMPurify 保留内联事件属性） */
+function handleMessagesClick(e) {
+  const img = e.target?.closest?.('img.chat-image')
+  if (img) {
+    openPreview(img.getAttribute('src') || '', img.getAttribute('alt') || '')
+  }
+}
+
+/** 打开修改密码页（移动端个人信息卡片入口），打标记供返回时恢复侧边栏 */
+function goChangePassword() {
+  closeSidebar()
+  sessionStorage.setItem('return_to_knowledge', '1')
+  router.push('/change-password')
+}
+
+/** 退出登录：清除本地登录态并返回首页 */
+function logout() {
+  request.post('/auth/logout').catch(() => {})
+  removeToken()
+  closeSidebar()
+  showToast('已退出登录', 'info')
+  router.push('/')
+}
+
 onUnmounted(() => {
+  chatBatchMode.value = false
   window.removeEventListener('resize', updateIsMobile)
-  delete window.__previewImage
   document.removeEventListener('error', handleImageError, true)
+  document.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('click', handleMenuOutsideClick)
   stopSpeech()
   if (recording.value) {
     recording.value = false
@@ -505,11 +670,9 @@ onUnmounted(() => {
 			  renderer.image = ({ href, title, text }) => {
 		    const escapedSrc = encodeURIComponent(href)
 		    const escapedAlt = text ? text.replace(/"/g, '&quot;') : ''
-		    // 通过后端代理加载图片，绕过防盗链
+		    // 通过后端代理加载图片，绕过防盗链；预览由消息区 click 事件委托处理（DOMPurify 会剥离内联 onclick）
 		    return `<img src="/api/image-proxy?url=${escapedSrc}" alt="${escapedAlt}" class="chat-image" loading="lazy"`
-		      + ` style="width:100%;height:auto;display:block;border-radius:8px;margin:4px 0;"`
-		      + ` onclick="window.__previewImage && window.__previewImage(this.src, this.alt)"`
-		      + ` onerror="this.style.display='none'" />`
+		      + ` style="width:100%;height:auto;display:block;border-radius:8px;margin:4px 0;" />`
 		  }
 	  const rawHtml = marked.parse(content, { renderer, gfm: true })
 	  // 清洗后把裸地址（含 /api/... 根相对路径）转为可点击链接，点击自动拼接当前站点
@@ -706,8 +869,13 @@ async function toggleRecording() {
     stopRecording()
     return
   }
+  // 分诊提示：先判断安全上下文，再判断 API 支持度，给用户可执行的修复指引
+  if (!window.isSecureContext) {
+    showToast('当前是 HTTP 环境，无法使用录音，请改用 https:// 地址访问', 'error')
+    return
+  }
   if (!navigator.mediaDevices?.getUserMedia) {
-    showToast('当前浏览器不支持录音', 'error')
+    showToast('当前浏览器/系统内核不支持录音，请升级浏览器或系统 WebView 后重试', 'error')
     return
   }
   try {
@@ -755,7 +923,10 @@ async function toggleRecording() {
       }
     }, 1000)
   } catch (err) {
-    showToast('无法访问麦克风：' + (err?.message || '权限被拒绝'), 'error')
+    const detail = err?.name === 'NotAllowedError'
+      ? '请在系统设置中允许麦克风权限后重试'
+      : (err?.message || '权限被拒绝')
+    showToast('无法访问麦克风：' + detail, 'error')
   }
 }
 
@@ -894,12 +1065,15 @@ async function uploadForRecognition(wavBlob) {
 }
 
 .sidebar-header {
-  padding: 20px 20px 20px 24px;
+  height: 75px;
+  box-sizing: border-box;
+  padding: 0 20px 0 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid #f1f5f9;
   gap: 8px;
+  flex-shrink: 0;
 }
 .sidebar-header h3 {
   margin: 0;
@@ -1029,54 +1203,169 @@ async function uploadForRecognition(wavBlob) {
   font-size: 0.9rem;
 }
 
-/* 历史项操作按钮 */
-.history-item-actions {
-  display: none;
+/* 历史项三点按钮与悬浮菜单 */
+.history-more-wrap {
   position: absolute;
   right: 8px;
-  top: 10px;
-  gap: 6px;
+  top: 6px;
 }
-.history-item:hover .history-item-actions {
+.history-more-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
 }
-.history-action-btn {
-	  width: 28px;
-	  height: 28px;
-	  border: none;
-	  border-radius: 6px;
-	  background: rgba(16,185,129,0.1);
-	  color: #10B981;
-	  cursor: pointer;
-	  display: flex;
-	  align-items: center;
-	  justify-content: center;
-	  transition: background 0.2s, color 0.2s;
-	}
-	.history-action-btn .icon {
-	  width: 16px;
-	  height: 16px;
-	}
-	.history-action-btn:hover {
-	  background: rgba(16,185,129,0.2);
-	  color: #059669;
-	}
-	.history-action-btn.delete:hover {
-	  background: rgba(239,68,68,0.15);
-	  color: #ef4444;
-	}
+.history-more-btn:hover {
+  background: rgba(16,185,129,0.1);
+  color: #10B981;
+}
+.history-more-btn .icon {
+  width: 18px;
+  height: 18px;
+}
+/* 三点菜单（Teleport 到 body，fixed 定位——脱离历史列表滚动容器，不被任何元素裁剪/遮挡） */
+.history-menu-fixed {
+  position: fixed;
+  width: 160px;
+  background: rgba(255,255,255,0.97);
+  border-radius: 12px;
+  border: 1px solid rgba(16,185,129,0.1);
+  box-shadow: 0 12px 32px rgba(15,23,42,0.18);
+  z-index: 3000;
+  overflow: hidden;
+  animation: fadeIn 0.15s ease;
+}
+.history-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  background: none;
+  font-size: 0.9rem;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+.history-menu-item:hover {
+  background: #f8fafc;
+}
+.history-menu-item.danger {
+  color: #ef4444;
+}
+.history-menu-item.danger:hover {
+  background: rgba(239,68,68,0.06);
+}
+.menu-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
 
-/* 编辑标题行 */
+/* 批量管理模式：勾选圆圈与底部按钮条 */
+.history-item.batch-mode {
+  cursor: pointer;
+}
+.history-item-main.batch-select {
+  cursor: pointer;
+}
+.batch-check-wrap {
+  position: absolute;
+  right: 6px;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.batch-circle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+.batch-circle.selected {
+  background: #111111;
+  border-color: #111111;
+}
+.batch-circle .icon {
+  width: 14px;
+  height: 14px;
+  color: #ffffff;
+}
+.batch-bar {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(245,247,250,0.75);
+  border-top: 1px solid rgba(16,185,129,0.08);
+}
+.batch-bar-btn {
+  flex: 1;
+  height: 44px;
+  border-radius: 12px;
+  border: none;
+  background: #f8fafc;
+  color: #1e293b;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.batch-bar-btn:hover {
+  background: #f1f5f9;
+}
+.batch-bar-btn.delete {
+  color: #ef4444;
+}
+.batch-bar-btn.delete:hover:not(:disabled) {
+  background: rgba(239,68,68,0.08);
+}
+.batch-bar-btn.delete:disabled {
+  color: #d1d5db;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+
+/* 修改标题弹窗输入框 */
 .edit-title-input {
-	  width: 100%;
-	  padding: 4px 8px;
-	  border: 1px solid #10B981;
-	  border-radius: 6px;
-	  font-size: 0.85rem;
-	  background: #ffffff;
-	  color: #1e1b4b;
-	  outline: none;
-	}
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 1rem;
+  background: #f8fafc;
+  color: #1e1b4b;
+  outline: none;
+  margin-bottom: 1.25rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.edit-title-input:focus {
+  border-color: #10B981;
+  box-shadow: 0 0 0 3px rgba(16,185,129,0.12);
+}
 
 /* 头像多彩动效 */
 @keyframes hueCycle {
@@ -1237,6 +1526,21 @@ async function uploadForRecognition(wavBlob) {
   box-shadow: 0 6px 20px rgba(239,68,68,0.4);
   transform: translateY(-1px);
 }
+/* 标题/正文左对齐（修改标题、批量删除确认弹窗使用） */
+.modal-title.left,
+.modal-desc.left {
+  text-align: left;
+}
+/* 修改标题弹窗的确定按钮：绿色主色 */
+.modal-btn.confirm.green {
+  background: linear-gradient(135deg, #34D399, #059669);
+  box-shadow: 0 4px 12px rgba(5,150,105,0.3);
+}
+.modal-btn.confirm.green:hover {
+  background: linear-gradient(135deg, #10B981, #047857);
+  box-shadow: 0 6px 20px rgba(5,150,105,0.4);
+  transform: translateY(-1px);
+}
 
 /* Main Chat Container Styles */
 .chat-container {
@@ -1305,12 +1609,15 @@ async function uploadForRecognition(wavBlob) {
 .back-btn {
 	  display: flex;
 	  align-items: center;
+	  justify-content: center;
 	  gap: 4px;
 	  background: rgba(16,185,129,0.08);
 	  border: 1px solid rgba(255,255,255,0.3);
 	  color: #10B981;
-	  padding: 6px 14px;
-	  border-radius: 999px;
+	  height: 40px;
+	  padding: 0 16px;
+	  box-sizing: border-box;
+	  border-radius: 12px;
 	  cursor: pointer;
 	  font-size: 0.85rem;
 	  font-weight: 500;
@@ -1836,8 +2143,14 @@ async function uploadForRecognition(wavBlob) {
     transform: translateX(-100%);
     transition: transform 0.3s ease;
     border-right: 1px solid #e2e8f0;
+    /* 移动端统一为灰色半透明底，保证与床头卡片底色一致 */
+    background: rgba(245, 247, 250, 0.75);
     box-shadow: none;
     z-index: 20;
+  }
+  /* 批量条与个人信息模块同高，批量模式切换时历史列表不跳动 */
+  .batch-bar {
+    min-height: 168px;
   }
   .sidebar.sidebar-open {
     transform: translateX(0);
@@ -1859,7 +2172,8 @@ async function uploadForRecognition(wavBlob) {
     display: flex;
   }
   .back-btn {
-    padding: 6px 10px;
+    padding: 0 12px;
+    height: 40px;
   }
   /* 移动端发送按钮：仅图标，节省横向空间 */
   .send-btn {
@@ -1895,11 +2209,13 @@ async function uploadForRecognition(wavBlob) {
 }
 
 
-/* 图片预览弹窗 */
+/* 图片预览弹窗（背景半透明黑 + 虚化） */
 .image-preview-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1940,6 +2256,92 @@ async function uploadForRecognition(wavBlob) {
 .image-preview-close svg {
   width: 22px;
   height: 22px;
+}
+
+/* ==================== 移动端侧边栏底部个人信息卡片 ==================== */
+.sidebar-footer {
+  flex-shrink: 0;
+  padding: 12px 12px 16px;
+  border-top: 1px solid rgba(16,185,129,0.08);
+}
+.profile-card {
+  /* 完全透明：底色与侧边栏100%一致，避免半透明叠加偏白；靠边框+阴影+圆角区分区域 */
+  background: transparent;
+  border: 1px solid rgba(16,185,129,0.3);
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(16,185,129,0.1);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.profile-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.profile-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  /* 与主页头像一致：淡绿底 + 绿色渐变字母（无动效版） */
+  background: #ECFDF5;
+  box-shadow: 0 2px 8px rgba(16,185,129,0.2);
+}
+.profile-avatar-letter {
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #10B981, #34D399, #6EE7B7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  user-select: none;
+}
+.profile-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-actions {
+  display: flex;
+  gap: 10px;
+}
+.profile-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(16,185,129,0.18);
+  background: rgba(16,185,129,0.05);
+  color: #065F46;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.profile-action-btn:hover {
+  background: rgba(16,185,129,0.12);
+  border-color: rgba(16,185,129,0.3);
+}
+.profile-action-btn:active {
+  transform: scale(0.98);
+}
+.profile-action-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #10B981;
 }
 
 /* ==================== RAG 切换开关 ==================== */

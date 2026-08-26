@@ -130,6 +130,9 @@ function showToast(message, type = 'info', duration = 3000) {
   }, duration)
 }
 provide('showToast', showToast)
+// 知识库页批量管理模式：批量时隐藏 user-dock（与侧边栏底部按钮条互斥，避免遮挡）
+const chatBatchMode = ref(false)
+provide('chatBatchMode', chatBatchMode)
 
 // ===== 启动时验证 token 有效性 =====
 onMounted(async () => {
@@ -150,10 +153,10 @@ function updateIsMobile() {
   isMobile.value = window.innerWidth <= 768
 }
 
-// 是否显示 dock（移动端聊天页隐藏，避免遮挡底部输入区）
+// 是否显示 dock（移动端聊天页隐藏，避免遮挡底部输入区；批量管理模式隐藏，避免遮挡批量按钮条）
 const showDock = computed(() => {
   if (isMobile.value && (route.path === '/knowledge' || route.path === '/manus')) return false
-  if (route.path === '/knowledge') return isSidebarOpen.value
+  if (route.path === '/knowledge') return isSidebarOpen.value && !chatBatchMode.value
   return true // 其他页面始终显示
 })
 
