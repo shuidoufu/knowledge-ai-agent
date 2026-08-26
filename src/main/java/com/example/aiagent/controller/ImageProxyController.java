@@ -3,12 +3,16 @@ package com.example.aiagent.controller;
 import com.example.aiagent.service.ImageProxyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 /**
  * 图片代理接口
@@ -26,11 +30,14 @@ public class ImageProxyController {
     /**
      * 代理下载图片
      *
-     * @param url 原始图片 URL
+     * @param url      原始图片 URL
+     * @param download 是否作为附件下载（移动端长按保存图片使用）
      * @return 图片字节流
      */
     @GetMapping(produces = MediaType.IMAGE_JPEG_VALUE)
-    public ResponseEntity<byte[]> proxyImage(@RequestParam("url") String url) {
+    public ResponseEntity<byte[]> proxyImage(
+            @RequestParam("url") String url,
+            @RequestParam(value = "download", defaultValue = "false") boolean download) {
         if (url == null || url.isBlank()) {
             return ResponseEntity.badRequest().build();
         }
@@ -53,9 +60,40 @@ public class ImageProxyController {
             default -> MediaType.IMAGE_JPEG;
         };
 
-        return ResponseEntity.ok()
-                .contentType(mediaType)
-                .body(result.bytes());
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok().contentType(mediaType);
+        if (download) {
+            builder.header(HttpHeaders.CONTENT_DISPOSITION,
+                    buildContentDisposition(buildFileName(url, result.format())));
+        }
+        return builder.body(result.bytes());
+    }
+
+    /**
+     * 从原始图片 URL 提取文件名（含扩展名），非法字符替换为下划线；无法提取时用时间戳命名。
+     */
+    private String buildFileName(String url, String format) {
+        // Spring 已对 query 解码一次，此处直接用 URL 的路径段（不二次解码，避免 %XX 被错误展开）
+        String ext = format == null || format.isBlank() ? "jpg" : format;
+        // 取路径最后一段作为文件名（去掉 query/fragment）
+        String path = url;
+        int q = path.indexOf('?');
+        if (q >= 0) path = path.substring(0, q);
+        String name = path.substring(path.lastIndexOf('/') + 1);
+        if (name.isBlank() || !name.contains(".")) {
+            name = "image_" + System.currentTimeMillis() + "." + ext;
+        }
+        // 清洗 Windows/URL 非法字符
+        name = name.replaceAll("[\\\\/:*?\"<>|\\s]", "_");
+        return name;
+    }
+
+    /**
+     * 构造 Content-Disposition（ASCII 回退名 + RFC 5987 中文名）。
+     */
+    private String buildContentDisposition(String fileName) {
+        String fallback = fileName.replaceAll("[^A-Za-z0-9._-]", "_");
+        String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+        return "attachment; filename=\"" + fallback + "\"; filename*=UTF-8''" + encoded;
     }
 
 }

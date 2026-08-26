@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider 对外共享路径：仅公共 Downloads 目录下的下载文件 -->
+<paths>
+    <external-path
+        name="downloads"
+        path="Download/" />
+</paths>

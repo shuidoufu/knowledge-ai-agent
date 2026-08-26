@@ -1,9 +1,9 @@
 <template>
   <div class="change-password-page">
-    <router-link to="/" class="back-link">
-	      <ArrowLeft class="icon" size="16" />
-	      返回应用中心
-	    </router-link>
+    <button type="button" class="back-link" @click="goBack">
+      <ArrowLeft class="icon" size="16" />
+      返回
+    </button>
     <div class="card">
       <h1>修改密码</h1>
       <p class="hint">为了保证安全，修改密码后会自动登出，请使用新密码重新登录。</p>
@@ -87,6 +87,15 @@ const showOldPwd = ref(false)
 const showNewPwd = ref(false)
 const showConfirmPwd = ref(false)
 
+/** 返回上一级页面（无历史时回首页） */
+function goBack() {
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/')
+  }
+}
+
 async function submit() {
   error.value = ''
   successMsg.value = ''
@@ -153,6 +162,7 @@ async function submit() {
 	  left: 2rem;
 	  color: #10B981;
 	  text-decoration: none;
+	  font-family: inherit;
 	  font-size: 0.85rem;
 	  font-weight: 500;
 	  display: inline-flex;
@@ -164,6 +174,7 @@ async function submit() {
 	  backdrop-filter: blur(8px);
 	  -webkit-backdrop-filter: blur(8px);
 	  border: 1px solid rgba(255,255,255,0.4);
+	  cursor: pointer;
 	  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
 	}
 	.back-link .icon {

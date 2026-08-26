@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 应用 -->
+    <string name="app_name">知问答</string>
+
+    <!-- 服务器设置页 -->
+    <string name="settings_title">服务器设置</string>
+    <string name="settings_hint">填写后端服务地址（内网穿透域名或 IP）</string>
+    <string name="settings_url_hint">例如 https://xxx.trycloudflare.com</string>
+    <string name="settings_save">保存并加载</string>
+    <string name="settings_url_invalid">请输入有效的服务器地址</string>
+
+    <!-- 加载错误页 -->
+    <string name="error_load_failed">无法连接服务器，请检查网络或服务器地址</string>
+    <string name="error_retry_settings">重新设置地址</string>
+
+    <!-- 下载通知 -->
+    <string name="download_channel_name">文件下载</string>
+    <string name="download_title">知问答下载</string>
+    <string name="download_done">下载完成</string>
+    <string name="download_open_hint">点击打开文件</string>
+    <string name="share">分享</string>
+    <string name="share_title">分享文件</string>
+</resources>

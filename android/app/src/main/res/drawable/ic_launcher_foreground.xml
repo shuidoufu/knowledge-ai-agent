@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 自适应图标前景：静态版主页品牌地球（彩色线框 + 卫星节点，配色与网页端一致） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 地球外轮廓 -->
+    <path
+        android:pathData="M32,54 a22,22 0 1 0 44,0 a22,22 0 1 0 -44,0"
+        android:strokeColor="#818CF8"
+        android:strokeWidth="2" />
+
+    <!-- 经线 -->
+    <path
+        android:pathData="M47.7,54 a6.3,22 0 1 0 12.6,0 a6.3,22 0 1 0 -12.6,0"
+        android:strokeColor="#A78BFA"
+        android:strokeWidth="1.4" />
+    <path
+        android:pathData="M38.3,54 a15.7,22 0 1 0 31.4,0 a15.7,22 0 1 0 -31.4,0"
+        android:strokeColor="#A78BFA"
+        android:strokeWidth="1.1" />
+
+    <!-- 纬线 -->
+    <path
+        android:pathData="M32,54 a22,6.3 0 1 0 44,0 a22,6.3 0 1 0 -44,0"
+        android:strokeColor="#A78BFA"
+        android:strokeWidth="1.4" />
+    <path
+        android:pathData="M32,54 a22,15.7 0 1 0 44,0 a22,15.7 0 1 0 -44,0"
+        android:strokeColor="#A78BFA"
+        android:strokeWidth="1.1" />
+
+    <!-- 卫星节点 -->
+    <path
+        android:fillColor="#818CF8"
+        android:pathData="M73.2,35.2 a2.8,2.8 0 1 0 5.6,0 a2.8,2.8 0 1 0 -5.6,0" />
+    <path
+        android:fillColor="#A78BFA"
+        android:pathData="M30,72.8 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0" />
+    <path
+        android:fillColor="#C4B5FD"
+        android:pathData="M77.4,66.6 a1.6,1.6 0 1 0 3.2,0 a1.6,1.6 0 1 0 -3.2,0" />
+</vector>

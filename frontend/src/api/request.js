@@ -1,8 +1,9 @@
 import axios from 'axios'
 import { getToken, removeToken } from '../utils/auth'
 
+const BASE_URL = ''  // 同源相对路径，生产环境 /api 由 nginx 反代（内网穿透）
 // const BASE_URL = import.meta.env.DEV ? '' : 'http://localhost:8123'
-const BASE_URL = import.meta.env.DEV ? '' : 'http://192.168.198.100' // 用于服务器/虚拟机
+// const BASE_URL = import.meta.env.DEV ? '' : 'http://192.168.198.100' // 用于服务器/虚拟机
 
 export const request = axios.create({
   baseURL: BASE_URL + '/api',
@@ -212,4 +213,11 @@ export function updateChatTitle(chatId, title) {
  */
 export function deleteChat(chatId) {
   return request.delete(`/ai/knowledge/chat/history/${chatId}`)
+}
+
+/**
+ * 批量删除会话
+ */
+export function batchDeleteChats(chatIds) {
+  return request.post('/ai/knowledge/chat/history/batch-delete', { chatIds })
 }

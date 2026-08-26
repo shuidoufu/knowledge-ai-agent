@@ -29,6 +29,7 @@ repository/  → 数据访问层
 service/     → 业务逻辑
 tool/        → Agent 工具（FileOperationTool、WebSearchTool、ImageSearchTool、WorkflowTool 等）
 notes/       → 存放的网页收藏技术文档书签 + 语雀技术文档（处理后，用作 RAG 知识库）
+android/     → 安卓 APP 壳工程（独立 Gradle 工程，WebView 加载远程 H5；MainActivity 入口、web/ WebView 封装与录音权限、bridge/ 原生能力（下载/分享）、config/ 服务器地址配置、ui/ 设置页）
 ```
 
 **请求流转**：Vue → Controller → Agent → Advisor链 → LLM → Tool调用 → 响应
@@ -38,6 +39,7 @@ notes/       → 存放的网页收藏技术文档书签 + 语雀技术文档（
 ## 📐 代码生成强制规则
 
 ### 通用（Java / Vue 均适用）
+- ✅ **拿不准就问**：对需求理解、技术方案、代码行为有任何拿不准、不理解、有疑问的地方，**必须及时向用户提出**，不要自行猜测后只管做
 - ✅ **遵循项目目录结构**：新增功能按 `🏗 包结构` 章节归类放置（配置类 → config/、工具 → tool/、检索 → rag/、数据模型 → model/ 等）
 - ✅ **该拆类就拆类**：功能独立时新建配置类、工具类、DTO 等，禁止把多个职责堆进一个大而全的类；类与文件命名见名知意，便于后续阅读、扩展、维护
 
@@ -78,11 +80,6 @@ notes/       → 存放的网页收藏技术文档书签 + 语雀技术文档（
 - ✅ **返回按钮**统一使用胶囊形（`border-radius: 999px`）+ SVG 箭头图标 + 玻璃拟态背景
 - ✅ **对话头像**：用户头像与 AI 头像大小一致（40×40px），使用 `margin-top` 对齐气泡第一行文字中心（约 10px）
 - ✅ **侧边栏**：宽度固定 260px，历史项右侧 padding 留足空间（≥72px）给操作按钮组
-
-## 🖼 图片识别规则
-
-**收到图片（本地路径/URL）或看图意图时，必须调用 `/view-image` 技能**（智谱 GLM-4.6V-Flash 免费视觉模型），禁止凭文件名猜测图片内容。
-调用方式：`node "C:\Users\陶逸峰\.zcode\skills\view-image\scripts\glm-vision.js" "<图片路径或URL>" --prompt "分析要求"`；OCR 场景 prompt 写"请完整提取图片中的文字，保留原有格式"。
 
 ## 🎨 前端 UI/UX 设计规则
 
@@ -206,6 +203,35 @@ notes/       → 存放的网页收藏技术文档书签 + 语雀技术文档（
 
 46. **RAG 引用标注必须门控在"AI 实际引用了知识库"（引用门控）**：检索（`QuestionAnswerAdvisor` 相似度阈值 0.5）返回的切片**不等于**被 AI 使用——AI 可能明确回答"知识库中没有检索到数据"却仍附上 3 篇不相关切片引用，用户视角即为"没检索到还显示引用"。**修复（`KnowledgeApp.doChatByStreamWithRag`）**：用 `.doOnNext` 累积流式回复全文，流结束后仅当 `docs 非空 且 回复包含引用标注 [n]`（`containsCitation`，正则 `\[\d{1,2}\]`，限制 1-2 位数字避免误匹配年份如 [2026]）时才追加 `<!--RAG_REFS-->` 并持久化 references，否则 `Flux.empty()` 不下发（前端 `references.length > 0` 自然隐藏）。曾尝试过"传 `hasUsefulRefs` 标识"方案，但标识语义若仍是"docs 非空"就与 references 非空等价、解决不了问题，已还原；**判定"有用"的唯一可靠信号是 AI 回复中的 [n] 标注**（系统提示词已有引用规范引导 AI 引用时标注 [1]、[2]）。副作用：AI 用了知识库却不标 [n] 时引用会隐藏，属可接受权衡
 
+47. **安卓 WebView 壳工程（android/ 目录，分支 konwledge_app）要点**：
+    - **独立解耦**：`android/` 是独立 Gradle 工程（settings 只含 `:app` 单模块），不引用 frontend 源码、不污染前端 package.json；**运行依赖仅 `androidx.core:core-ktx`**，其余纯系统 API（WebView / DownloadManager / FileProvider）；不引入 Material / AppCompat 库——Activity 用纯 `android.app.Activity` + 系统 `Theme.Material.Light.NoActionBar`（状态栏品牌色 #10B981），保持壳最精简
+    - **加载模式是远程加载**：WebView 直接加载已部署 H5（隧道域名），nginx 反代 /api，前端零改动、H5 更新免重打包；因此壳层与 H5 之间无 JS 桥，只约定 URL 行为
+    - **target="_blank" 链接必须拦截 onCreateWindow**：前端 linkify 生成的下载链接是 `<a target="_blank">`，WebView 中**不走 shouldOverrideUrlLoading**（那是普通导航），必须重写 `onCreateWindow` 用 WebViewTransport 取出目标 URL 分发后丢弃，否则 PDF 链接会在系统浏览器打开（AppWebView.kt）
+    - **URL 分发规则**（`AppWebView.dispatchUrl`）：同 host 且路径 `/api/files` 前缀 → `DownloadHelper` 原生下载（DownloadManager 存系统 Downloads + 完成通知 + FileProvider 打开/分享）；同 host 其他 → 放行站内导航；其他域名 / scheme → 系统浏览器
+    - **录音双层权限**：manifest 声明 `RECORD_AUDIO` + WebView `onPermissionRequest` 里申请 Android 运行时权限后再 `grant()`（`WebPermissionHandler`）；隧道 HTTPS 是安全上下文，H5 的 getUserMedia 无感可用
+    - **录音必须 HTTPS 安全上下文**：手机端"浏览器不支持录音"的头号原因是非 HTTPS（`window.isSecureContext === false` 时 `navigator.mediaDevices` 直接 undefined）。前端 `toggleRecording` 已做**三档分诊提示**：①非安全上下文 →"当前是 HTTP 环境，请改用 https:// 地址"；②`mediaDevices?.getUserMedia` 缺失 →"浏览器/系统内核过旧，请升级"；③`NotAllowedError` →"请在系统设置中允许麦克风权限"。排查顺序：先确认地址是 https 隧道域名而非 http 内网 IP/微信内置浏览器
+    - **WebView 下载有三条路径，缺一不可**（前端链接三种形态）：①普通导航（`shouldOverrideUrlLoading` 站内 `/api/files` 拦截）；②`target="_blank"`（`onCreateWindow` + WebViewTransport 取 URL 分发）；③`<a download>`（**必须 `setDownloadListener`**，不走前两者，壳层已补）。DownloadListener 回调的相对路径要拼当前 origin（**用 `Uri.authority` 保留端口**，`host` 会丢端口，`http://ip:8123` 直连调试会拼错）
+    - **长按保存图片链路（download=1 约定）**：~~前端长按（600ms，touchmove 取消）→ 构造 `/api/image-proxy?url=...&download=1` 的 `<a download>` 点击~~ **⚠️ 该交互已取消**（移动端"长按后抬手触发 click"与浏览器手势冲突，双击会跳转下载页面；用户要求仅保留点击放大预览）。`download=1` 参数与壳层 `setDownloadListener`/`dispatchUrl` 规则仍保留（供 PDF 等下载用）。**图片预览必须用消息区 click 事件委托**（`.messages @click="handleMessagesClick"` + `closest('img.chat-image')` → `openPreview`）——**DOMPurify.sanitize 会剥离 img 的内联 `onclick`/`onerror` 属性**（默认白名单不含 on* 事件属性），这就是"点击图片不放大"的根因，任何内联事件属性方案都不可靠
+    - **预览状态是共享单例**：`frontend/src/utils/previewImage.js` 导出共享 ref + `window.__previewImage` 全局注册（模块加载时一次）；两个聊天页不要再各自 onMounted 注册 / onUnmounted delete（会互相覆盖删除，曾踩坑）
+    - **移动端 header 按钮统一高度 40px**：`.sidebar-menu-btn`（40×40 圆角 12）与 `.back-btn`（height:40px + 圆角 12，勿用胶囊 999px + padding 撑高——padding 行高在不同设备字号下高度不一致），标题文字由 header `align-items:center` 垂直居中
+    - **批量按钮与个人信息按钮形状一致**：`.batch-bar-btn` 与 `.profile-action-btn` 同用**圆角 12px**（勿用胶囊 999px）；但批量按钮**配色保持原样**（白灰底 `#f8fafc`、黑字、删除红字、柔和阴影，无边框无绿 tint）——用户要求"只参考形状，配色恢复之前的"
+      - **三点菜单必须 Teleport 到 body + fixed 定位（遮挡的根治方案）**：菜单渲染在历史列表内部时，`.history-list { overflow-y: scroll }` 会**裁剪**超出滚动容器可视区域的 absolute 菜单（向上/向下展开只要越界就被裁，视觉上像"被个人信息组件挡住"——z-index 再高也没用，因为不是层级遮挡而是容器裁剪）。**修复：菜单移到 `<Teleport to="body">`，`position: fixed`，位置在 `toggleMenu` 里用菜单项的 `getBoundingClientRect()`（视口坐标）+ `window.innerHeight` 计算（下方空间不足且上方够则向上展开），`left = itemRect.right - 8 - 160`，z-index 3000**。菜单项按钮必须 `@click.stop`（Teleport 到 body 后点击冒泡到 document 会立即关闭菜单）；"修改标题"需要 chat 对象时用 `computed` 按 menuChatId 从 historyList 反查
+      - **批量模式切换布局零跳动**：批量模式隐藏"新对话按钮"和"个人信息卡片"会改变 sidebar-header（75px→64px）与底部区域（168px→69px）高度，history-list 高度随之变化 100px+，视觉上"画面上下拉伸"。**修复：`.sidebar-header` 固定 `height:75px`（box-sizing:border-box）；移动端 `.batch-bar` `min-height:168px`（与 sidebar-footer 同高，按钮垂直居中，桌面端保持紧凑）**——批量切换时 history-list 高度不变
+    - **移动端侧边栏个人信息卡片**：KnowledgeChat.vue `.sidebar` 底部 `.sidebar-footer`（`v-if="isMobile"`，桌面不显示、桌面用 user-dock）；⚠️ **卡片背景必须 `transparent`（完全透明）**——半透明背景是叠加的：`rgba(255,255,255,0.55)` 放在同样是 0.55 的玻璃侧边栏上，合成后 ≈0.8，比底色更白、永远不协调（试过 0.75/0.55 均失败）。透明后底色 100% 跟随侧边栏，靠 1px 淡绿边框 `rgba(16,185,129,0.3)` + 阴影 + 圆角 20px 区分；移动端侧边栏统一灰色半透明底 `rgba(245,247,250,0.75)`（media query 内显式声明，桌面端保持白玻璃不动）；第一行头像**与主页 user-dock 头像视觉一致（淡绿底 #ECFDF5 圆 + 绿色渐变字母 `linear-gradient(135deg,#10B981,#34D399,#6EE7B7)` + background-clip:text，不带动效）** + 用户名（响应式 ref）；第二行修改密码（Lock）/ 退出登录（LogOut）两个 44px 按钮（复用 App.vue 的 logout 逻辑：POST /auth/logout + removeToken + 跳首页）
+    - **修改密码页返回行为**：ChangePassword.vue 返回按钮文案"返回"（非"返回应用中心"），行为 `window.history.length > 1 ? router.back() : router.push('/')`——从历史会话个人信息卡片进入改密后返回，应回到历史会话界面且**侧边栏保持打开**。⚠️ **不能靠 `window.history.state.back` 判断来源**：浏览器回退后目标条目的 state 是**进入该页时 push 的旧 state**（back 是更早的路径，不是来源页），判断永不命中。**正确做法：进入改密页时 `sessionStorage.setItem('return_to_knowledge','1')` 打标，KnowledgeChat onMounted 读取后立即 `removeItem`**（防止改完密码自动登出/下次直接进入时残留误开侧边栏）
+    - **历史对话侧边栏交互（三点菜单 + 批量管理）**：
+      - 标题文案为"**历史对话**"（非"历史会话"，所有端统一，含 toggle/menu 按钮 title）
+      - **三点菜单替换 hover 快捷按钮**：移动端无 hover，`history-item` 右侧原编辑/删除 hover 按钮必须改为常显竖三点（MoreVertical，36px 触控区），点击弹出悬浮菜单（白底圆角+阴影）：批量管理（ListChecks）/ 修改标题（Pencil）/ 删除对话（Trash2 红色）；`menuChatId` 控制打开状态，document click + 列表 @scroll 关闭（onMounted 注册/onUnmounted 移除，菜单项 @click.stop）
+      - **修改标题是弹窗交互**（非行内编辑）：`editTitleVisible` + 预填当前标题 + 取消/确定（确定=绿色按钮 class `modal-btn confirm green`），确定调 `updateChatTitle` 后 fetchHistoryList + toast
+      - **批量管理模式**（`batchMode` + `selectedChatIds` + `confirmBatchDelete`）：进入后**侧边栏重新排版**——隐藏新对话按钮、隐藏移动端个人信息卡片；历史项右侧变空心灰圆圈（选中→黑底白勾 Check 白色图标）；底部按钮条：取消（黑字）/ 删除 (N)（红字，N=选中数，N=0 禁用），背景 `rgba(245,247,250,0.75)` 与侧边栏一致
+      - **⚠️ 桌面端 user-dock 与批量按钮条重叠**：user-dock fixed z-index 999 在左下角，会遮挡侧边栏底部批量条（取消按钮点不到）。**修复：App.vue provide('chatBatchMode', ref)，KnowledgeChat 批量模式切换时置 true/false（onUnmounted 清 false），showDock computed 在 knowledge 页加 `&& !chatBatchMode.value`**——批量管理界面隐藏"个人信息组件"（桌面 dock 即个人信息组件）符合需求语义。移动端 dock 本就隐藏无此问题
+      - **批量删除确认弹窗**（图三样式）：标题"删除对话记录"左对齐加粗、正文"删除后内容将无法恢复，确认删除选中记录？"、取消（浅灰底黑字）+ 删除（红底 #ef4444 白字）；确认后 `batchDeleteChats(ids)` → 退出批量模式 + 若删了当前会话 `createNewChat()` + fetchHistoryList + toast；**catch 分支必须也关闭弹窗并退出批量模式**（当前实现 catch 里没退，失败时用户会被困在批量界面——已知待优化点）
+    - **STT 上传 1MB 限制（已修复）**：后端 `spring.servlet.multipart` 原为 Spring Boot 默认 1MB/文件，录音上限 60 秒（16kHz 16bit 单声道）WAV ≈1.9MB 会 400。**已修复**：`application.yml` 已加 `spring.servlet.multipart.max-file-size: 5MB` / `max-request-size: 6MB`
+    - **首启地址配置**：`ServerConfig` 存 SharedPreferences；trycloudflare 等免费隧道域名重启会变，设置页改地址即可，无需重打包；`ServerConfig.normalize` 补全 https:// 前缀
+    - **明文流量**：Android 9+ 默认禁 HTTP 明文，manifest 已配 `usesCleartextTraffic="true"` 兜底（自用内测可接受；上架前应移除并强制 HTTPS）
+    - **构建**：`cd android && gradlew.bat assembleDebug`，产物 `app/build/outputs/apk/debug/app-debug.apk`；需要 JDK 17 + Android SDK（本机暂无，安装指南见 `docs/android-app.md` 第六节）；Gradle Wrapper 8.9 + AGP 8.5.2 + Kotlin 2.0.20
+    - **版本管理**：`versionCode`（整数递增）/ `versionName`（如 1.0.0）在 `app/build.gradle.kts`；release keystore 必须备份（丢失无法覆盖升级）
+
 ---
 
 ## 🔑 关键配置
@@ -244,6 +270,9 @@ script\preprocess-docs.bat D:\笔记目录
 
 # 构建
 ./mvnw clean package -DskipTests
+
+# 安卓 APP 构建（需 JDK 17 + Android SDK，详见 docs/android-app.md 第六节）
+cd android && gradlew.bat assembleDebug
 ```
 
 ---
@@ -347,7 +376,6 @@ git push
 - [ ] Agent 新增 Tool 已注册？
 - [ ] 涉及 MCP 相关的改动时，`McpFallbackConfig.java` 是否需要同步更新？
 - [ ] 前端 UI/UX 改动前是否已加载 `/ui-ux-pro-max` 技能？
-- [ ] 收到图片/看图需求时是否已调用 `/view-image` 技能？
 - [ ] SVG 图标是否替代了 emoji？
 - [ ] 密码输入框是否加了显示/隐藏切换？
 - [ ] 认证相关组件是否从 `auth.js` 导入响应式 ref 而非调用 `getUsername()`？

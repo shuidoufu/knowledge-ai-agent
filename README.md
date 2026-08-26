@@ -20,8 +20,12 @@
 | 🛡 **统一异常降级** | 基于 AOP 注解的统一降级框架，支持重试、缓存、跳过、通知、备选五种降级策略 |
 | 🔒 **登录鉴权** | JWT Token 认证，支持注册/登录/密码修改，注册含图片验证码校验；启动时随机生成密钥，重启后旧 token 自动失效 |
 | 🎨 **现代化 UI** | 翠绿主题玻璃拟态风格，Lucide 统一图标库，流式 Markdown 渲染，RAG 来源知识卡片，移动端自适应，密码显示/隐藏切换 |
+| 🗂 **历史对话管理** | 侧边栏标题"历史对话"；每个会话三点菜单（批量管理/修改标题/删除对话），修改标题为弹窗交互，**批量管理**支持多选批量删除（空心圆勾选 + 底部取消/删除(N)按钮条 + 删除确认弹窗，移动端/桌面端同一套排版） |
 | 🎙 **AI 回复语音播报（TTS）** | 接入百炼 CosyVoice 语音合成，AI 回复一键语音播报，长文本自动分段合成，按内容 MD5 文件缓存（重复内容秒级返回） |
 | 🎤 **麦克风语音输入（STT）** | 输入框麦克风按钮录音（Web Audio 降采样编码 WAV），接入百炼 Paraformer 实时识别，转写结果填入输入框，Ctrl+Enter 换行 |
+| 🖼 **图片点击放大预览** | 点击 AI 回复图片全屏放大（背景虚化 blur），消息区事件委托实现（DOMPurify 会剥离内联事件属性）；已取消长按保存交互 |
+| 👤 **移动端个人信息卡片** | 知识库聊天页移动端侧边栏底部：圆形头像 + 用户名 + 修改密码/退出登录（复用网页端图标与登出逻辑） |
+| 📱 **安卓 APP** | 轻量 WebView 壳（`android/` 独立 Gradle 工程，Kotlin 自研，无第三方框架），远程加载已部署 H5，支持服务器地址配置（内网穿透域名可改）、PDF 等文件原生下载与分享、录音输入 |
 
 ---
 
@@ -63,6 +67,7 @@
 - **Java 17+**（推荐使用 IntelliJ IDEA 自带的 JBR 17）
 - **Node.js 18+**
 - **MongoDB**（本地运行需安装）
+- **Android SDK + JDK 17**（仅构建安卓 APP 需要，安装步骤见 `docs/android-app.md`）
 
 ### 1️⃣ 启动后端
 
@@ -92,7 +97,19 @@ npm run dev
 2. 前端进行npm run build，将dist文件上传至虚拟机中
 
 
-### 4️⃣ 访问
+### 4️⃣ 构建安卓 APP
+
+```bash
+# 前置：JDK 17 + Android SDK（安装与验证步骤见 docs/android-app.md 第六节）
+cd android
+gradlew.bat assembleDebug
+# 产物：android/app/build/outputs/apk/debug/app-debug.apk
+# 安装：adb install app-debug.apk 或拷贝 APK 到手机直接安装
+```
+
+> APP 为 WebView 壳（远程加载已部署 H5），首启需在设置页填写后端地址（内网穿透域名）。
+
+### 5️⃣ 访问
 
 | 服务 | 地址 |
 |------|------|
@@ -133,6 +150,15 @@ ai-agent/
 │       ├── router/        # 路由配置
 │       ├── utils/         # 工具函数
 │       └── views/         # 页面（登录、首页、个人知识助手、超级智能体）
+├── android/               # 安卓 APP 壳工程（独立 Gradle 工程，与前端解耦）
+│   └── app/src/main/java/com/example/aiagent/app/
+│       ├── MainActivity.kt          # 入口：WebView 容器
+│       ├── web/                     # WebView 封装与录音权限（AppWebView / WebPermissionHandler）
+│       ├── bridge/                  # 文件下载/打开/分享（DownloadHelper）
+│       ├── config/                  # 服务器地址配置（ServerConfig）
+│       └── ui/                      # 服务器地址设置页（SettingsActivity）
+├── docs/
+│   └── android-app.md    # 安卓 APP 需求与架构文档
 ├── script/                # 辅助脚本（start-backend、html-to-md、preprocess-docs）
 ├── src/main/resources/
 │   ├── application.yml    # 主配置（需自行填入 API Key）
