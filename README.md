@@ -26,6 +26,7 @@
 | 🖼 **图片点击放大预览** | 点击 AI 回复图片全屏放大（背景虚化 blur），消息区事件委托实现（DOMPurify 会剥离内联事件属性）；已取消长按保存交互 |
 | 👤 **移动端个人信息卡片** | 知识库聊天页移动端侧边栏底部：圆形头像 + 用户名 + 修改密码/退出登录（复用网页端图标与登出逻辑） |
 | 📱 **安卓 APP** | 轻量 WebView 壳（`android/` 独立 Gradle 工程，Kotlin 自研，无第三方框架），远程加载已部署 H5，支持服务器地址配置（内网穿透域名可改）、PDF 等文件原生下载与分享、录音输入 |
+| 🧩 **微信小程序端** | uni-app CLI + Vite（`miniprogram/` 独立工程，Vue3 语法编译到微信小程序）：应用中心首页（知识助手 / AI 超级智能体双入口）、流式聊天（RAG 开关 + 引用折叠展示）、历史会话管理（切换/改标题/删除/批量删除）、语音输入（STT）/播报（TTS）、图片下载本地化显示与点击预览、PDF 下载打开、服务器地址可配置 |
 
 ---
 
@@ -68,6 +69,7 @@
 - **Node.js 18+**
 - **MongoDB**（本地运行需安装）
 - **Android SDK + JDK 17**（仅构建安卓 APP 需要，安装步骤见 `docs/android-app.md`）
+- **微信开发者工具**（仅小程序端需要，用测试号即可开发调试，真机调试需真实 AppID，详见 `docs/miniprogram.md`）
 
 ### 1️⃣ 启动后端
 
@@ -109,7 +111,21 @@ gradlew.bat assembleDebug
 
 > APP 为 WebView 壳（远程加载已部署 H5），首启需在设置页填写后端地址（内网穿透域名）。
 
-### 5️⃣ 访问
+### 5️⃣ 构建微信小程序
+
+```bash
+# 前置：微信开发者工具（开发调试可用测试号；真机调试需真实 AppID）
+cd miniprogram
+npm install
+npm run dev:mp-weixin     # 开发模式（watch 增量编译），或 build:mp-weixin 产物在 dist/build/mp-weixin
+```
+
+1. 打开微信开发者工具 → 导入项目 → 选择 `miniprogram/dist/dev/mp-weixin` 目录
+2. 「详情 → 本地设置」勾选 **"不校验合法域名"**（后端是局域网 HTTP）
+3. 真机调试/预览需在 manifest.json 配置**真实 AppID**（已配置 wx85657988d800e96f）
+4. 登录页底部配置服务器地址（局域网 `http://电脑IP:8123/api` 或 HTTPS 隧道域名），详见 `docs/miniprogram.md`
+
+### 6️⃣ 访问
 
 | 服务 | 地址 |
 |------|------|
@@ -157,8 +173,15 @@ ai-agent/
 │       ├── bridge/                  # 文件下载/打开/分享（DownloadHelper）
 │       ├── config/                  # 服务器地址配置（ServerConfig）
 │       └── ui/                      # 服务器地址设置页（SettingsActivity）
+├── miniprogram/           # 微信小程序端（独立 uni-app CLI 工程，Vue3 + Vite，与前端解耦）
+│   └── src/
+│       ├── pages/                  # 页面层（index 应用中心 / login / knowledge 知识聊天 / manus 智能体）
+│       ├── components/             # 组件层（chat-bubble 消息气泡 / history-panel 历史弹层 / confirm-dialog / server-config）
+│       ├── utils/                  # 逻辑层（config / request 请求+流式 / api 接口 / auth / chat / markdown / tts / stt / image-loader 图片本地化）
+│       └── static/icons/           # SVG 线性图标集（小程序 image 组件加载）
 ├── docs/
-│   └── android-app.md    # 安卓 APP 需求与架构文档
+│   ├── android-app.md    # 安卓 APP 需求与架构文档
+│   └── miniprogram.md    # 微信小程序需求与开发文档（编译/预览步骤、服务器地址配置、踩坑记录）
 ├── script/                # 辅助脚本（start-backend、html-to-md、preprocess-docs）
 ├── src/main/resources/
 │   ├── application.yml    # 主配置（需自行填入 API Key）

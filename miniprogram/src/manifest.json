@@ -1,0 +1,22 @@
+{
+    "name" : "知问答",
+    "appid" : "",
+    "description" : "个人知识助手微信小程序端（个人测试用）",
+    "versionName" : "1.0.0",
+    "versionCode" : "100",
+    "transformPx" : false,
+    /* 小程序特有相关 */
+    "mp-weixin" : {
+        "appid" : "wx85657988d800e96f",
+        "setting" : {
+            "urlCheck" : false,
+            "es6" : false,
+            "minified" : false
+        },
+        "usingComponents" : true
+    },
+    "uniStatistics" : {
+        "enable" : false
+    },
+    "vueVersion" : "3"
+}
