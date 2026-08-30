@@ -180,8 +180,11 @@ ai-agent/
 │       ├── utils/                  # 逻辑层（config / request 请求+流式 / api 接口 / auth / chat / markdown / tts / stt / image-loader 图片本地化）
 │       └── static/icons/           # SVG 线性图标集（小程序 image 组件加载）
 ├── docs/
-│   ├── android-app.md    # 安卓 APP 需求与架构文档
-│   └── miniprogram.md    # 微信小程序需求与开发文档（编译/预览步骤、服务器地址配置、踩坑记录）
+│   ├── android-app.md    # 安卓 APP 需求与开发文档（构建/安装/部署）
+│   ├── miniprogram.md    # 微信小程序需求与开发文档（编译/预览步骤、服务器地址配置、踩坑记录）
+│   ├── known-pitfalls.md # 踩坑详情（与 AGENTS.md「已知陷阱」索引编号对应）
+│   ├── rules-template.md # 项目规则模板（新项目起步：复制为 AGENTS.md 后替换占位符）
+│   └── PROGRESS-template.md  # 项目进度模板（新项目起步：复制为根目录 PROGRESS.md）
 ├── script/                # 辅助脚本（start-backend、html-to-md、preprocess-docs）
 ├── src/main/resources/
 │   ├── application.yml    # 主配置（需自行填入 API Key）
