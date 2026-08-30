@@ -5,7 +5,7 @@
 ## 项目状态
 
 - 当前分支：`knowledge-miniprogram`
-- 一句话现状：规则体系验证流程已闭环，文档重构改动已提交推送（5acbb2f）；P1 收尾基本完成（planner 子智能体、CHANGELOG），仅 remote URL 待用户确认目标地址。
+- 一句话现状：规则体系、子智能体、进度/版本管理全部落地并已提交推送；P1 收尾完成（planner / CHANGELOG / remote URL）；P2 自动化测试框架评估后已放弃，测试维持手动。
 
 ## 需求 / 任务清单
 
@@ -19,7 +19,7 @@
 | [x] 完成 | 新会话验证整套流程 | 违规诱捕自测命中 request.js 陷阱 38（P1）；code-test 子智能体独立复测一致，规则/子智能体确认生效 |
 | [x] 完成 | 规划/架构子智能体 | Zcode `planner.yaml` + Claude Code `planner.md` |
 | [x] 完成 | CHANGELOG 收尾 | 创建根目录 `CHANGELOG.md` |
-| [~] 进行中 | remote URL 更新 | 待用户确认目标地址（shuidoufu/knowledge-ai-agent）后执行 `git remote set-url` |
+| [x] 完成 | remote URL 更新 | 已改为 shuidoufu/knowledge-ai-agent，a9c6e55 推送成功 |
 
 ## 本次改动记录（最新在前）
 
@@ -35,14 +35,15 @@
 - AGENTS_BAK.md 为未跟踪备份文件，按提交规则（只提交本次改动文件）不应入库
 - AGENTS.md 与 CLAUDE.md 需保持一致（本次已同步，后续改规则两文件一起改）
 - 本次改动已提交推送（5acbb2f，排除 request.js / AGENTS_BAK.md）；后续改规则注意 CLAUDE.md 与 AGENTS.md 一起改
-- 无自动化测试框架（JUnit/vitest），测试靠手动 curl/页面，待建（P2）
+- 自动化测试框架（JUnit/vitest）已决定不引入（P2 评估后放弃），测试维持手动 curl/页面
+- MCP 服务暂不配置（后续可能接数据库 MCP，待定）
 - code-test 子智能体已实跑验证生效（本次）；浏览器级 UI 交互无 headless 环境未覆盖
 
 ## 下一步
 
 1. ✅ P1 已决策：request.js 保留 localhost:8123 作本地配置，不入库
-2. AGENTS_BAK.md 去留待定（当前不入库，保留作备份）
-3. ✅ 文档重构 + 规则体系改动已提交推送（5acbb2f）
-4. ✅ P1 收尾：planner 子智能体、CHANGELOG.md 已建
-5. ⏳ remote URL 更新：待用户确认目标地址（shuidoufu/knowledge-ai-agent）后执行
-6. 进入新的功能开发或运维任务
+2. ✅ AGENTS_BAK.md 已决定保留作备份（不入库）
+3. ✅ 文档重构 + 规则体系改动已提交推送（5acbb2f / a9c6e55）
+4. ✅ P1 收尾：planner 子智能体、CHANGELOG.md、remote URL 已完成
+5. ✅ P2 测试框架已放弃（用户决定，已还原）；MCP 暂不配置（后续可能接数据库）
+6. 进入新的功能开发或运维任务（待用户提需求）

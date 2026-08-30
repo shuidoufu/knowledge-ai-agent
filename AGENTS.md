@@ -214,7 +214,7 @@ cd miniprogram && npm install && npm run dev:mp-weixin   # 小程序编译
 - **测试卫生**：测试文件统一 `tmp/test-*` 且命名带 test 标识；清理只删本次产生文件，**禁止 `rm -rf`/通配符清目录**；测试产物不得进知识库/提交
 - **独立功能测试**：开发后调用功能测试子智能体（Zcode / Claude Code 的 `code-test`）交叉验证，避免"自己写自己测"的确认偏差
 - **Code Review**：自测通过后调用代码审查（Claude Code `/code-review` 或 Zcode `code-review` 子智能体）审查（缺陷 + 规则符合性），按 P0-P3 修复并告知用户
-- **进度更新**：开发/运维结束后，必须更新根目录 `PROGRESS.md`（任务状态、本次改动、下一步、风险），保持会话间衔接
+- **进度更新（PROGRESS.md）**：开始新需求前，先写入根目录 `PROGRESS.md` 的「需求/任务清单」；开发/运维结束后更新任务状态、本次改动、下一步、风险，保持会话间衔接
 
 > 编译通过 ≠ 能运行：Bean 冲突、配置问题、工具名重复只在启动时暴露。
 
