@@ -153,10 +153,10 @@ function updateIsMobile() {
   isMobile.value = window.innerWidth <= 768
 }
 
-// 是否显示 dock（移动端聊天页隐藏，避免遮挡底部输入区；批量管理模式隐藏，避免遮挡批量按钮条）
+// 是否显示 dock：移动端聊天页隐藏（避免遮挡底部输入区）；/knowledge 历史对话页始终隐藏（避免与历史对话列表重叠，交互待后续优化）
 const showDock = computed(() => {
   if (isMobile.value && (route.path === '/knowledge' || route.path === '/manus')) return false
-  if (route.path === '/knowledge') return isSidebarOpen.value && !chatBatchMode.value
+  if (route.path === '/knowledge') return false // 历史对话页暂时隐藏个人信息组件，避免与历史对话列表重叠
   return true // 其他页面始终显示
 })
 

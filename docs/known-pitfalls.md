@@ -116,6 +116,12 @@
 
 44. **聊天消息中 AI 返回的下载地址（`/api/files/pdf/xxx.pdf`）必须前端链接化**：`PDFGenerationTool` 返回根相对路径（无站点前缀），用户无法直接访问。**修复方案（前端 `src/utils/linkify.js` + `renderMarkdown`）**：在 `DOMPurify.sanitize` 之后对 HTML 文本节点做链接化——匹配 `https?://`、`www.`（补 `https://`）、`/api/` 根相对路径（点击时浏览器自动基于当前站点解析，生产环境经 nginx 同源反代同样生效），跳过 `pre`/`code`/已有 `a` 内的文本；`/api/` 前缀限制避免误转普通斜杠文本（如"1/2"）；中文文件名正常保留，但地址尾部粘连中文（如 `a.pdf。下载吧`）需按"扩展名/路径段后跟中文"启发式裁剪。不要尝试在后端拼绝对 URL（后端无法可靠知道公网域名/IP）。配套 `prompt.yml` 已改为引导 AI 输出"点击链接即可下载"，后端重启后生效
 
+49. **语音输入（STT）前端必须为"录音过短/无语音/报错"给出可读提示**：原始 AXios 对 HTTP 400 的 `err.message` 是生硬的 `Request failed with status code 400`，且后端 STT 此前对多种情况返回**无 body 的 `badRequest().build()`**，前端拿不到任何描述。**修复（三层）**：①前端在 `stopRecording()` 用 PCM 采样数算时长（`totalLen / 16000`），`<0.6s` 直接拦截提示"录音时间过短，请按住麦克风说话至少 1 秒后再松开"，避免上传无效音频；②后端 `SpeechController.stt()` 所有 400 分支改为 `badRequest().body(Map.of("message", "…"))`（未接收到录音文件 / 过大 / 非 WAV / 解析失败），`GlobalExceptionHandler` 对 `IllegalArgumentException`（如"未识别到语音内容"）也返回带 message 的 JSON；③前端 `sttErrorMessage(err)` 错误映射顺序：`err.response.data.message` 优先（后端友好提示）→ 按状态码（400 音频无效 / 413 过大 / 5xx 服务异常）→ `ECONNABORTED` 超时 → 有 `err.request` 无 `response` 判网络异常 → 兜底。**经验**：后端异常响应一律带 `message` 字段，前端统一走 `response.data.message`，不要展示 Axios 原始 `err.message`
+
+50. **侧边栏 `.history-list` 的滚动条与右侧"收起历史对话"按钮（`.toggle-sidebar-btn`）重叠**：`.history-list { overflow-y: scroll }` 的自定义 `::-webkit-scrollbar`（5px）固定在列表右边缘（x=255~260），而切换按钮 `position:absolute; left:260px; top:50%; translateX(-50%)` 中心压在侧边栏右边界（x=246~274），两者在垂直中部区域重叠，视觉上"滚动条被按钮切断/穿过"。**正确修复：让收起按钮整体移到侧边栏右缘外侧，而不是给列表让位**——`.toggle-sidebar-btn` 去掉 `translateX(-50%)`（`left: 260px` 即按钮左边缘贴右缘，占聊天区一侧 x=260~288），`.history-list` 保持无右侧 margin、滚动条吸附最右侧边框，两者互不重叠（该按钮定位上下文是 `.chat-layout`，不在 `.sidebar` 内，不受其 `overflow:hidden` 裁剪）。曾尝试 `.history-list { margin-right: 18px }` 让滚动条左移让位，虽避开了按钮但滚动条离右边框太远，视觉不佳，已还原。仅桌面端受影响（移动端 `.toggle-sidebar-btn` 已是 `display:none`）
+
+51. **user-dock（左下角个人信息组件）与历史对话列表重叠**：`.user-dock` 是 `position:fixed; left:20px; bottom:20px; z-index:999`，在 `/knowledge` 页侧边栏展开时叠在历史列表底部，盖住历史项与标题，无法点击下方项。**临时修复：`App.vue` 的 `showDock` 对 `/knowledge` 路由恒返回 `false`**（与移动端一致，桌面端此页也不再显示个人信息组件；其余页面如首页仍显示）。⚠️ 副作用：桌面端 `/knowledge` 页暂时无法从此组件进入"修改密码/退出登录"，属**用户明示接受的临时方案**，后续需重新设计该页的个人信息入口/布局（见 PROGRESS.md「后续优化」）
+
 ---
 
 ## 脚本工具陷阱（html-to-md / 文档处理）

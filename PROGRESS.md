@@ -4,8 +4,8 @@
 
 ## 项目状态
 
-- 当前分支：`knowledge-miniprogram`
-- 一句话现状：规则体系、子智能体、进度/版本管理全部落地并已提交推送；P1 收尾完成（planner / CHANGELOG / remote URL）；P2 自动化测试框架评估后已放弃，测试维持手动。
+- 当前分支：`test`
+- 一句话现状：规则体系、子智能体、进度/版本管理全部落地并已提交推送；P1 收尾完成（planner / CHANGELOG / remote URL）；P2 自动化测试框架评估后已放弃，测试维持手动。当前在 `test` 分支集中修 web 端交互问题（语音识别友好提示、历史对话滚动条重叠、个人信息组件重叠）。
 
 ## 需求 / 任务清单
 
@@ -20,11 +20,25 @@
 | [x] 完成 | 规划/架构子智能体 | Zcode `planner.yaml` + Claude Code `planner.md` |
 | [x] 完成 | CHANGELOG 收尾 | 创建根目录 `CHANGELOG.md` |
 | [x] 完成 | remote URL 更新 | 已改为 shuidoufu/knowledge-ai-agent，a9c6e55 推送成功 |
+| [x] 完成 | web: 语音识别友好错误提示 | 过短(<0.6s)前端拦截 + 后端 400 带 message + 前端映射中文提示 |
+| [x] 完成 | web: 历史对话滚动条与收起按钮重叠 | 收起按钮置于侧边栏右缘外侧(left:260px 不居中)，滚动条贴右侧边框 |
+| [x] 完成 | web: 隐藏历史对话中的个人信息组件 | /knowledge 页 user-dock 恒隐藏（临时方案，见后续优化） |
+
+## 后续优化（待办）
+
+> 已确认但暂不做的优化，集中登记，后续需求按项处理。
+
+- **web 历史对话页个人信息入口重构**：为修复与历史列表重叠，`/knowledge` 页暂时隐藏左下角 user-dock（个人信息组件）。副作用是桌面端此页无法再从该组件进入"修改密码/退出登录"。后续需重新设计该页个人信息入口（如侧边栏底部并入个人卡片、或放头部菜单），需同时考虑桌面端与移动端一致性，改完移除 `showDock` 中对 `/knowledge` 的临时隐藏分支
+- **manus 超级智能体**：后续慢慢实现该功能
+
 
 ## 本次改动记录（最新在前）
 
 | 日期 | 改动 | 涉及文件/模块 | 是否已测/已审 |
 |------|------|--------------|--------------|
+| 2026/9/1 | README 新增「📸 界面预览」章节：Web / 安卓 APP / 微信小程序三端各 2 张运行截图（docs/screenshots/，英文命名） | README.md、docs/screenshots/（6 张图）、PROGRESS.md | 文档类改动，路径已验证 |
+| 2026/9/1 | web 端交互优化修正：收起按钮移到侧边栏右缘外侧（left:260px 不居中），滚动条恢复贴右侧边框（撤销 .history-list margin-right:18px 让位方案，避免滚动条离边框太远）。陷阱 50 修复方案同步 | KnowledgeChat.vue、AGENTS.md、CLAUDE.md、docs/known-pitfalls.md、PROGRESS.md | 未测试（用户声明无需测试） |
+| 2026/9/1 | web 端交互问题修复：①语音识别友好提示（前端过短拦截<0.6s + sttErrorMessage 映射 + 后端 400 附 message）；②历史对话滚动条与收起按钮重叠（.history-list 预留右侧 margin 18px）；③隐藏 /knowledge 页个人信息组件（showDock 恒 false，待优化）。文档同步 49/50/51 | KnowledgeChat.vue、App.vue、SpeechController.java、AGENTS.md、docs/known-pitfalls.md、PROGRESS.md | 前端 build 通过；后端 compile 通过（页面交互未 headless 验证） |
 | 2026/8/30 | 验证流程闭环：违规诱捕自测 + code-test 子智能体实跑 | request.js（捕获 P1：生产 BASE_URL 命中陷阱 38）、PROGRESS.md | 是（前端构建 / 后端接口 11 项 / 消费方回归通过；浏览器 UI 无 headless 跳过） |
 | 2026/8/30 | 规则文档体系重构 + 通用模板 + 测试子智能体 | CLAUDE.md、AGENTS.md、docs/known-pitfalls.md、docs/rules-template.md、docs/PROGRESS-template.md、PROGRESS.md、RULES.md(删)、~/.claude/agents/code-test.md、~/.zcode/agents/code-test.yaml | 文档类改动，结构已验证 |
 | 2026/8/30 | Claude Code 上下文窗口放大 + 子代理模型修复 | ~/.claude/settings.json | 是 |
@@ -38,6 +52,8 @@
 - 自动化测试框架（JUnit/vitest）已决定不引入（P2 评估后放弃），测试维持手动 curl/页面
 - MCP 服务暂不配置（后续可能接数据库 MCP，待定）
 - code-test 子智能体已实跑验证生效（本次）；浏览器级 UI 交互无 headless 环境未覆盖
+- ⚠️ 本次 web 端 3 处修复已做前端 build / 后端 compile 验证，但**页面级交互未 headless 验证**（录音需真实麦克风、滚动条重叠需窄屏视觉确认），建议用户本地 `npm run dev` 复核
+- ⚠️ /knowledge 页个人信息组件(user-dock)已临时隐藏，副作用为桌面端该页暂无"修改密码/退出登录"入口，见「后续优化」
 
 ## 下一步
 
@@ -46,4 +62,5 @@
 3. ✅ 文档重构 + 规则体系改动已提交推送（5acbb2f / a9c6e55）
 4. ✅ P1 收尾：planner 子智能体、CHANGELOG.md、remote URL 已完成
 5. ✅ P2 测试框架已放弃（用户决定，已还原）；MCP 暂不配置（后续可能接数据库）
-6. 进入新的功能开发或运维任务（待用户提需求）
+6. ✅ web 端 3 处交互问题已修复（test 分支，待用户验收后合并）
+7. 进入新的功能开发或运维任务（待用户提需求）

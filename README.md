@@ -30,6 +30,28 @@
 
 ---
 
+## 📸 界面预览
+
+**Web 端**（翠绿主题玻璃拟态）
+
+![Web 首页](docs/screenshots/web-home.png)
+
+![Web 知识聊天](docs/screenshots/web-chat.png)
+
+**安卓 APP**（WebView 壳，加载已部署 H5）
+
+![APP 首页](docs/screenshots/android-home.png)
+
+![APP 聊天界面](docs/screenshots/android-chat.png)
+
+**微信小程序**（uni-app 编译，真机运行）
+
+![小程序首页](docs/screenshots/miniprogram-home.png)
+
+![小程序聊天界面](docs/screenshots/miniprogram-chat.png)
+
+---
+
 ## 🏗 技术栈
 
 ### 后端
