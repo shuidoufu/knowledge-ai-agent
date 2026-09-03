@@ -22,11 +22,12 @@ Thumbs.db
 # === Project specific ===  
 chat_memory/  
 .mongo-data/  
-tmp/  
+tmp/
+/src/main/resources/document/
   
 # === ZCode ===  
 .zcode/  
-  
+.agents/
 # === Config with secrets ===
 src/main/resources/application.yml
 src/main/resources/application-local.yml  
@@ -45,6 +46,8 @@ nul
 .gitattributes
 /frontend/dist/
 /deploy/
+notes/
+PROGRESS.md
 
 # === Android（安卓壳工程构建产物与本地配置） ===
 android/.gradle/
