@@ -69,22 +69,22 @@ public class SpeechController {
     @PostMapping(value = "/stt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> stt(@RequestParam("file") MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(Map.of("message", "未接收到录音文件，请重新录制"));
         }
         if (file.getSize() > MAX_AUDIO_BYTES) {
             log.warn("stt audio too large, size={}", file.getSize());
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(Map.of("message", "录音文件过大（上限 10MB），请缩短录音时长"));
         }
         String originalName = file.getOriginalFilename();
         if (originalName == null || !originalName.toLowerCase().endsWith(".wav")) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(Map.of("message", "仅支持 WAV 格式的录音文件"));
         }
         try {
             String text = speechRecognitionService.recognize(file.getBytes());
             return ResponseEntity.ok(Map.of("text", text));
         } catch (java.io.IOException e) {
             log.warn("stt read audio failed", e);
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(Map.of("message", "录音文件解析失败，请重新录制"));
         }
     }
 

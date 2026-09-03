@@ -84,7 +84,7 @@
       </div>
     </Teleport>
 
-    <!-- 侧边栏边缘切换按钮 -->
+    <!-- 侧边栏右缘外侧切换按钮（不遮挡列表滚动条） -->
     <button class="toggle-sidebar-btn" :class="{ collapsed: !isSidebarOpen }" @click="toggleSidebar" :title="isSidebarOpen ? '收起历史对话' : '展开历史对话'">
 	      <ChevronLeft v-if="isSidebarOpen" class="icon" size="18" />
 	      <ChevronRight v-else class="icon" size="18" />
@@ -950,7 +950,12 @@ function stopRecording() {
   }
   const totalLen = pcmChunks.reduce((sum, chunk) => sum + chunk.length, 0)
   if (totalLen === 0) {
-    showToast('未录到有效音频', 'error')
+    showToast('未录到有效音频，请重新录音', 'error')
+    return
+  }
+  // 录音时长过短（<0.6s）无法识别，直接前端拦截，避免上传无效音频后收到 400
+  if (totalLen / 16000 < 0.6) {
+    showToast('录音时间过短，请按住麦克风说话至少 1 秒后再松开', 'error')
     return
   }
   const pcm = new Int16Array(totalLen)
@@ -1005,13 +1010,26 @@ async function uploadForRecognition(wavBlob) {
       inputText.value = text
       showToast('语音已转文字', 'success')
     } else {
-      showToast('未识别到语音内容', 'error')
+      showToast('未检测到语音内容，请重新录制', 'error')
     }
   } catch (err) {
-    showToast('语音识别失败：' + (err?.message || '网络错误'), 'error')
+    showToast('语音识别失败：' + sttErrorMessage(err), 'error')
   } finally {
     transcribing.value = false
   }
+}
+
+/** 将语音识别错误转换为用户可读提示 */
+function sttErrorMessage(err) {
+  // 后端返回的业务提示（如"未识别到语音内容"、格式错误等）优先展示
+  if (err?.response?.data?.message) return err.response.data.message
+  const status = err?.response?.status
+  if (status === 400) return '音频无效或未检测到语音，请重新录制'
+  if (status === 413) return '录音文件过大，请缩短录音时长'
+  if (status && status >= 500) return '语音识别服务异常，请稍后重试'
+  if (err?.code === 'ECONNABORTED') return '语音识别超时，请重试'
+  if (err?.request) return '网络异常，请检查网络后重试'
+  return '语音识别失败，请重试'
 }
 </script>
 
@@ -1115,7 +1133,8 @@ async function uploadForRecognition(wavBlob) {
 	  position: absolute;
 	  top: 50%;
 	  left: 260px;
-	  transform: translateY(-50%) translateX(-50%);
+	  /* 按钮整体置于侧边栏右缘外侧（不居中），避免遮挡列表滚动条 */
+	  transform: translateY(-50%);
 	  z-index: 50;
 	  display: flex;
 	  align-items: center;
@@ -1142,7 +1161,7 @@ async function uploadForRecognition(wavBlob) {
 }
 .toggle-sidebar-btn.collapsed {
   left: 0;
-  transform: translateY(-50%) translateX(0);
+  transform: translateY(-50%);
   border-radius: 0 8px 8px 0;
   border-left: none;
 }
@@ -1151,6 +1170,7 @@ async function uploadForRecognition(wavBlob) {
   flex-grow: 1;
   overflow-y: scroll;
   overflow-x: hidden;
+  /* 滚动条吸附在历史对话最右侧边框；收起按钮在右缘外侧，互不重叠 */
   padding: 10px 10px 10px 0;
   display: flex;
   flex-direction: column;
