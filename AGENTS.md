@@ -170,7 +170,7 @@
 40. **AI 误把 tmp/file 当知识库**：prompt.yml 明确"工作缓存非知识库"，禁止主动 listFiles
 45. **历史会话按 updatedAt 排序**：null 回退 createdAt 且排最后，勿在 MongoDB 层 Sort
 46. **RAG 引用门控**：仅当回复含 [n] 标注才下发 references
-56. **知识库文档目录写入限制**：上传写在 `app.knowledge.document-dir`，jar 部署该目录只读、上传必失败；加载器须「真实目录优先 + classpath 回退」；预处理分割线插入须幂等；重新入库先删旧向量
+56. **知识库文档目录写入限制**：上传写在 `app.knowledge.document-dir`，jar 部署该目录只读、上传必失败；加载器须「真实目录优先 + classpath 回退」；预处理分割线插入须幂等；重新入库先删旧向量并**原地覆盖磁盘文件**（受版本管理的文档重跑后会在 git 工作区变成已修改）
 
 ### 前端陷阱（Vue Web）
 6. **localStorage 非响应式**：必须用 auth.js 响应式 ref，禁止 computed 里读 getUsername()
@@ -189,7 +189,7 @@
 52. **flex 列容器子项被压扁裁切**：子项 `overflow` 非 visible 时「自动最小尺寸」为 0，必须显式 `flex-shrink: 0`
 53. **自定义浮层（下拉/菜单）必须 Teleport + fixed**：`html, body { overflow-x: hidden }` 使 body 成为滚动容器，absolute 浮层会被裁剪
 54. **详情类请求要做时序保护**：先发的响应后到会覆盖后发的，用递增请求序号只采纳最新
-55. **「可操作状态」用白名单判断**：`!isRunning()` 会放过已完成状态，应显式列出允许的状态值
+55. **「重新入库」按"非处理中"显示 + 已完成二次确认**：它既是失败恢复也是主动重跑，收紧成"仅失败显示"会砍掉日常重跑入口；已完成重跑会先删旧切片，需确认
 
 ### 脚本工具陷阱（html-to-md / 文档处理）
 35. **HtmlToMarkdownConverter 要点**：getWholeText / 递归子节点防自环 / 跳过代码围栏 / 保留原文
