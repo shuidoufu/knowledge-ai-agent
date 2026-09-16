@@ -43,7 +43,6 @@ images-search-mcp-server/
 .claude/  
 mvn_compile_output*.txt  
 nul
-.gitattributes
 /frontend/dist/
 /deploy/
 notes/
