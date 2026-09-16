@@ -1,0 +1,53 @@
+# 编辑器统一约定（EditorConfig）
+# 作用范围：仅约束编辑器对**新代码**的缩进/行尾等行为，不会自动重排存量文件；
+# 但存量文件下次被保存时，编辑器会按此处的规则修正其缩进与行尾。
+#
+# 行尾约定说明：仓库 git 配置为 core.autocrlf=true（提交进仓库统一为 LF），
+# 工作区里绝大多数源码为 CRLF，故此处声明 CRLF；.gitattributes 已把 /mvnw 钉为 LF、*.cmd 钉为 CRLF，与本文件保持一致。
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+max_line_length = off
+
+# 后端 Java：4 空格缩进
+[*.java]
+indent_size = 4
+
+# 前端：2 空格缩进
+[*.{js,vue,css,html,json}]
+indent_size = 2
+
+# 配置：2 空格缩进
+[*.{yml,yaml}]
+indent_size = 2
+
+# Markdown 行尾两个空格表示换行，不裁剪行尾空格
+[*.md]
+trim_trailing_whitespace = false
+
+# Maven / XML：4 空格缩进
+[*.xml]
+indent_size = 4
+
+# Android（Kotlin / Gradle Kotlin DSL）：4 空格缩进
+[*.{kt,kts,gradle}]
+indent_size = 4
+
+# shell 脚本必须 LF，否则在 Unix/Git Bash 下会因 ^M 报 bad interpreter
+[*.sh]
+end_of_line = lf
+
+# Windows 批处理必须 CRLF
+[*.{bat,cmd}]
+end_of_line = crlf
+
+# 与 .gitattributes 中 /mvnw text eol=lf 保持一致
+[mvnw]
+end_of_line = lf
