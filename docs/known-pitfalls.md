@@ -84,6 +84,8 @@
 
 46. **RAG 引用标注必须门控在"AI 实际引用了知识库"（引用门控）**：检索（`QuestionAnswerAdvisor` 相似度阈值 0.5）返回的切片**不等于**被 AI 使用——AI 可能明确回答"知识库中没有检索到数据"却仍附上 3 篇不相关切片引用，用户视角即为"没检索到还显示引用"。**修复（`KnowledgeApp.doChatByStreamWithRag`）**：用 `.doOnNext` 累积流式回复全文，流结束后仅当 `docs 非空 且 回复包含引用标注 [n]`（`containsCitation`，正则 `\[\d{1,2}\]`，限制 1-2 位数字避免误匹配年份如 [2026]）时才追加 `<!--RAG_REFS-->` 并持久化 references，否则 `Flux.empty()` 不下发（前端 `references.length > 0` 自然隐藏）。曾尝试过"传 `hasUsefulRefs` 标识"方案，但标识语义若仍是"docs 非空"就与 references 非空等价、解决不了问题，已还原；**判定"有用"的唯一可靠信号是 AI 回复中的 [n] 标注**（系统提示词已有引用规范引导 AI 引用时标注 [1]、[2]）。副作用：AI 用了知识库却不标 [n] 时引用会隐藏，属可接受权衡
 
+56. **知识库文档目录写入限制（Web 端上传/删除）**：运行时上传的文档落在 `app.knowledge.document-dir`（默认 `src/main/resources/document`）。四个要点：①**打包成 jar 后该目录只读，上传与删除必定失败**，需以源码目录方式运行（`mvnw spring-boot:run`）或把配置指向可写目录；②dev 下加载器不能只用 `classpath:`——`classpath:document/*.md` 解析到 `target/classes`，运行时写进源码目录不会被加载，须做成「真实目录存在则扫 `file:` 该目录，否则回退 classpath」（`classpath:` 分支供 jar 运行用）；③`DocumentPreprocessor` 插入 `---` 分割线**必须幂等**（前一个非空行已是 `---` 就跳过），否则重新入库会在每个 `##` 前累积重复分割线；④「重新入库」要**先删该文档旧向量再重跑全流程**，只重跑不清理会留下孤儿切片。另：切片 id 用「文件名#正文 MD5」（与启动加载同源），换标题拼接方式会导致同一文档重复向量化
+
 ---
 
 ## 前端陷阱（Vue Web）
@@ -120,7 +122,15 @@
 
 50. **侧边栏 `.history-list` 的滚动条与右侧"收起历史对话"按钮（`.toggle-sidebar-btn`）重叠**：`.history-list { overflow-y: scroll }` 的自定义 `::-webkit-scrollbar`（5px）固定在列表右边缘（x=255~260），而切换按钮 `position:absolute; left:260px; top:50%; translateX(-50%)` 中心压在侧边栏右边界（x=246~274），两者在垂直中部区域重叠，视觉上"滚动条被按钮切断/穿过"。**正确修复：让收起按钮整体移到侧边栏右缘外侧，而不是给列表让位**——`.toggle-sidebar-btn` 去掉 `translateX(-50%)`（`left: 260px` 即按钮左边缘贴右缘，占聊天区一侧 x=260~288），`.history-list` 保持无右侧 margin、滚动条吸附最右侧边框，两者互不重叠（该按钮定位上下文是 `.chat-layout`，不在 `.sidebar` 内，不受其 `overflow:hidden` 裁剪）。曾尝试 `.history-list { margin-right: 18px }` 让滚动条左移让位，虽避开了按钮但滚动条离右边框太远，视觉不佳，已还原。仅桌面端受影响（移动端 `.toggle-sidebar-btn` 已是 `display:none`）
 
-51. **user-dock（左下角个人信息组件）与历史对话列表重叠**：`.user-dock` 是 `position:fixed; left:20px; bottom:20px; z-index:999`，在 `/knowledge` 页侧边栏展开时叠在历史列表底部，盖住历史项与标题，无法点击下方项。**临时修复：`App.vue` 的 `showDock` 对 `/knowledge` 路由恒返回 `false`**（与移动端一致，桌面端此页也不再显示个人信息组件；其余页面如首页仍显示）。⚠️ 副作用：桌面端 `/knowledge` 页暂时无法从此组件进入"修改密码/退出登录"，属**用户明示接受的临时方案**，后续需重新设计该页的个人信息入口/布局（见 PROGRESS.md「后续优化」）
+51. **user-dock（左下角个人信息组件）与页面内容重叠**：`.user-dock` 是 `position:fixed; left:20px; bottom:20px; z-index:999`。两处重叠：`/knowledge` 页侧边栏展开时叠在历史列表底部，盖住历史项与标题无法点击；`/knowledge-documents` 页在视口宽约 769–850px 时叠在批量操作条上（dock `z-index:999` > 批量条 `100`），压住「取消」按钮文字并抢走点击。**临时修复：`App.vue` 的 `showDock` 对 `/knowledge` 与 `/knowledge-documents` 两个路由恒返回 `false`**（其余页面如首页仍显示）。⚠️ 副作用：这两页暂时无法从该组件进入"修改密码/退出登录"（知识库管理页可经「返回」回首页使用），属**用户明示接受的临时方案**，后续需重新设计个人信息入口/布局（见 PROGRESS.md「后续优化」）
+
+52. **flex 列容器的子项被压扁、内容被裁切（分块结果全部变成 1px）**：`.chunk-list` 是 `display:flex; flex-direction:column` 容器，子项 `.chunk-item` 自带 `overflow:hidden`。按 Flexbox 规范，子项 `overflow` 不是 `visible` 时其「自动最小尺寸」为 **0**，于是子项被压到几乎没有高度、内容被 `overflow:hidden` 裁掉——实测 76 个分块项每个 `offsetHeight:1px` 而 `scrollHeight:44px`（`flexShrink:1`），表现为"所有分块挤在一页、内容不显示、也看不到滚动条"；叠加内层 `max-height:320px` 的独立滚动，又导致"有的有滚动条、有的没有"。**修复：给子项显式 `flex-shrink: 0`**。这是陷阱 42（横向 `min-width:auto` 把内容挤出屏幕）的竖向版本；排查手段是量 `offsetHeight` 与 `scrollHeight` 是否相等
+
+53. **自定义浮层（下拉/菜单）必须 Teleport + fixed**：`App.vue` 的 `html, body { overflow-x: hidden }` 按 CSS 规范会把 `overflow-y` 的计算值变成 `auto`，body 因此成为滚动容器，**绝对定位的浮层会被裁剪或引发多余滚动**，所以排序下拉这类浮层不能用 `position:absolute`。做法（照 `KnowledgeChat.vue` 三点菜单）：浮层 `<Teleport to="body">` + `position:fixed`，`nextTick` 后按触发元素的 `getBoundingClientRect()` 定位，面板最小宽度对齐触发元素，下方空间不足则向上翻转，左右各留 8px 边距；玻璃拟态用 `backdrop-filter: blur(20px)`，`z-index` 与既有 Teleport 菜单保持一致（3000）。交互要覆盖点击外部、`Esc`、`Tab`、页面滚动四种关闭路径；滚动关闭必须用 `window` 的 **capture** 监听，才能收到不冒泡的 `scroll` 事件
+
+54. **详情类弹窗的请求时序竞态**：`openDetail` 是"先开弹窗再等接口"。若先点 A（响应慢）→ 关闭 → 点 B，A 的响应后到会**覆盖 B 的内容**（标题显示 B、正文却是 A）；若 A 请求失败，还会把刚为 B 打开的弹窗一起关掉。**修复：`openDetail` 用递增请求序号，响应回来先比对，不是最新一次就丢弃（`catch` 分支同理，避免误报错与误关弹窗）；`closeDetail` 也递增序号，使进行中的请求失效**。验证手法：给首个 `/content` 请求注入 2.5s 延迟制造乱序，再撤掉守卫做反证对比（撤掉时显示 A、恢复后显示 B）
+
+55. **"可操作状态"要用白名单，不要写成"非进行中"**：`canReindex(doc)` 原实现是 `!isRunning(doc)`，本意是"未入库/失败可重新入库"，实际把**已完成**文档也算成可操作，列表每一行都显示「重新入库」。**修复：显式列出允许的状态**（`['NOT_INDEXED','PREPROCESS_FAILED','VECTORIZE_FAILED']`）。规律：状态判断写成"排除某个状态"时，后续新增的状态会静默落入可操作分支
 
 ---
 
