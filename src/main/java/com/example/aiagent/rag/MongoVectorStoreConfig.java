@@ -1,6 +1,5 @@
 package com.example.aiagent.rag;
 
-import cn.hutool.crypto.digest.DigestUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
@@ -77,7 +76,7 @@ public class MongoVectorStoreConfig {
         for (int i = 0; i < documentList.size(); i++) {
             Document document = documentList.get(i);
             String filename = (String) document.getMetadata().getOrDefault("filename", "unknown");
-            String stableId = filename + "#" + DigestUtil.md5Hex(document.getText());
+            String stableId = KnowledgeAppDocumentLoader.stableDocumentId(filename, document.getText());
             documentList.set(i, Document.builder()
                     .id(stableId)
                     .text(document.getText())

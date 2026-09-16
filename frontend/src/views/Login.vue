@@ -203,7 +203,7 @@ async function submit() {
       body.captchaCode = captchaCode.value
     }
     const { data } = await request.post(url, body)
-    setToken(data.token, data.username)
+    setToken(data.token, data.username, data.isAdmin)
     showToast(isRegister.value ? '注册成功' : '登录成功', 'success')
     const returnUrl = route.query.returnUrl || '/'
     setTimeout(() => router.replace(returnUrl), 600)

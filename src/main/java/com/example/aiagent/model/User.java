@@ -1,5 +1,6 @@
 package com.example.aiagent.model;
 
+import com.example.aiagent.constant.UserRole;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -27,5 +28,7 @@ public class User {
     private LocalDateTime updatedAt;    // 更新时间
 
     private LocalDateTime lastLoginAt;  // 最后登录时间
+
+    private Integer role = UserRole.USER;  // 角色（0 普通用户 / 1 管理员），取值见 UserRole
 
 }

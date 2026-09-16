@@ -5,6 +5,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -56,5 +57,28 @@ public class AuthService {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * 从请求头取当前登录用户名
+     *
+     * @param request HTTP 请求
+     * @return 用户名；未登录或 token 非法时返回 null
+     */
+    public String getCurrentUsername(HttpServletRequest request) {
+        if (request == null) {
+            return null;
+        }
+        return parseUsername(parseBearerToken(request.getHeader("Authorization")));
+    }
+
+    /**
+     * 提取 Bearer token 原文
+     */
+    private static String parseBearerToken(String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            return null;
+        }
+        return authorization.substring(7).trim();
     }
 }

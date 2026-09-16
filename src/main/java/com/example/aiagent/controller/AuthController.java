@@ -39,12 +39,13 @@ public class AuthController {
         String token = authService.createToken(user.getUsername());
         return Map.of(
                 "token", token,
-                "username", user.getUsername()
+                "username", user.getUsername(),
+                "isAdmin", UserService.isAdminUser(user)
         );
     }
 
     /**
-     * 校验当前 token 是否有效，返回当前用户名（用于前端恢复登录态）
+     * 校验当前 token 是否有效，返回当前用户名与管理员标识（用于前端恢复登录态）
      * GET /api/auth/me
      * Header: Authorization: Bearer <token>
      */
@@ -55,7 +56,10 @@ public class AuthController {
         if (username == null) {
             throw new IllegalArgumentException("未登录或登录已过期");
         }
-        return Map.of("username", username);
+        return Map.of(
+                "username", username,
+                "isAdmin", userService.isAdmin(username)
+        );
     }
 
     /**
@@ -94,7 +98,8 @@ public class AuthController {
         String token = authService.createToken(user.getUsername());
         return Map.of(
                 "token", token,
-                "username", user.getUsername()
+                "username", user.getUsername(),
+                "isAdmin", UserService.isAdminUser(user)
         );
     }
 

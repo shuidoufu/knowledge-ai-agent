@@ -1,4 +1,4 @@
-package com.example.aiagent.rag;
+package com.example.aiagent.service;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;

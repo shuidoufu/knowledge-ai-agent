@@ -155,8 +155,11 @@ public class DocumentPreprocessor {
 
     /**
      * 执行所有清洗和格式化规则
+     *
+     * @param content 原始 Markdown 内容
+     * @return 清洗后的内容
      */
-    static String processContent(String content) {
+    public static String processContent(String content) {
         if (content == null || content.isBlank()) {
             return content;
         }
@@ -182,21 +185,25 @@ public class DocumentPreprocessor {
 
     /**
      * 在 ## 标题前添加 --- 分割线
-     * 第一个 ## 不加，后续每个 ## 前加 ---
+     * 第一个 ## 不加，后续每个 ## 前加 ---；前一个非空行已是分割线时跳过，保证可重复执行
      */
     private static String addHorizontalRules(String content) {
         StringBuilder sb = new StringBuilder();
         String[] lines = content.split("\n", -1);
         boolean isFirstHeading = true;
+        String lastNonBlankLine = "";
 
         for (String line : lines) {
             if (line.startsWith("## ")) {
-                if (!isFirstHeading) {
+                if (!isFirstHeading && !"---".equals(lastNonBlankLine.trim())) {
                     sb.append("---\n");
                 }
                 isFirstHeading = false;
             }
             sb.append(line).append("\n");
+            if (!line.isBlank()) {
+                lastNonBlankLine = line;
+            }
         }
 
         return sb.toString();
