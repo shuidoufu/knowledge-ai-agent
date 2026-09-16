@@ -167,7 +167,7 @@
                 title="重新入库"
                 aria-label="重新入库"
                 :disabled="reindexing.includes(doc.filename)"
-                @click="doReindex(doc)"
+                @click="askReindex(doc)"
               >
                 <RefreshCw class="icon" :class="{ spin: reindexing.includes(doc.filename) }" size="17" />
               </button>
@@ -276,6 +276,23 @@
             <button type="button" class="modal-btn confirm" :disabled="deleting" @click="doBatchDelete">
               {{ deleting ? '删除中...' : '删除' }}
             </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 重新入库确认弹窗（仅已完成文档：重跑会先删旧切片，失败则该文档变为失败） -->
+    <Teleport to="body">
+      <div v-if="confirmReindexDoc" class="modal-overlay" @click="confirmReindexDoc = null">
+        <div class="modal-content" @click.stop>
+          <div class="modal-title">重新入库</div>
+          <div class="modal-desc">
+            确定重新入库「{{ confirmReindexDoc.filename }}」吗？将先删除已有
+            {{ confirmReindexDoc.chunkCount || 0 }} 个切片，再重跑 预处理 → 分块 → 向量化；失败时该文档状态会变为「失败」。
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="modal-btn cancel" @click="confirmReindexDoc = null">取消</button>
+            <button type="button" class="modal-btn confirm green" @click="confirmReindex">确认重跑</button>
           </div>
         </div>
       </div>
@@ -436,6 +453,7 @@ const batchMode = ref(false)
 const selected = ref([])
 const confirmDeleteDoc = ref(null)
 const confirmBatchDelete = ref(false)
+const confirmReindexDoc = ref(null)
 const deleting = ref(false)
 const reindexing = ref([])
 
@@ -481,12 +499,9 @@ function isRunning(doc) {
   return doc.status === 'PREPROCESSING' || doc.status === 'VECTORIZING'
 }
 
-/** 可重新入库的状态：未入库与两类失败（进行中不可点，已完成无需重跑） */
-const REINDEXABLE_STATUSES = ['NOT_INDEXED', 'PREPROCESS_FAILED', 'VECTORIZE_FAILED']
-
-/** 仅未入库与失败状态显示「重新入库」（进行中需等待处理完成，已完成无需重跑） */
+/** 非处理中的文档均可重新入库（预处理中/向量化中需等待处理完成） */
 function canReindex(doc) {
-  return REINDEXABLE_STATUSES.includes(doc.status)
+  return !isRunning(doc)
 }
 
 function formatSize(bytes) {
@@ -741,6 +756,21 @@ async function doBatchDelete() {
   } finally {
     deleting.value = false
   }
+}
+
+/** 点「重新入库」：已完成文档有切片会被替换，先二次确认；未入库与失败状态直接重跑 */
+function askReindex(doc) {
+  if (doc.status === 'COMPLETED') {
+    confirmReindexDoc.value = doc
+    return
+  }
+  doReindex(doc)
+}
+
+function confirmReindex() {
+  const doc = confirmReindexDoc.value
+  confirmReindexDoc.value = null
+  if (doc) doReindex(doc)
 }
 
 async function doReindex(doc) {
