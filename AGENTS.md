@@ -20,14 +20,21 @@
 | `advisor/` | Advisor 横切逻辑（日志、提示词优化） |
 | `agent/` | Agent 核心（BaseAgent→ReActAgent→ToolCallAgent→Manus） |
 | `app/` · `chatmemory/` | 业务应用（KnowledgeApp）· 聊天记忆 |
+| `bootstrap/` | 启动自检/初始化（ApplicationRunner、CommandLineRunner 等启动期逻辑） |
 | `config/` · `filter/` | 全局配置（CORS/JWT/Auth/McpFallbackConfig）· JWT 过滤器 |
+| `constant/` | 常量与静态配置数据（目录常量、黑名单、角色取值表等） |
 | `controller/` | REST 控制器（**只做转发，不含业务**） |
+| `degradation/` | 统一降级框架（@Degradable 注解 + AOP 切面） |
+| `demo/` | 学习/示例代码，非生产逻辑，勿在此新增业务代码 |
 | `model/` · `repository/` | 数据模型/DTO · 数据访问层 |
-| `rag/` | 向量存储/文档加载/查询改写 |
-| `service/` · `tool/` | 业务逻辑 · Agent 工具 |
+| `rag/` | 向量存储/文档加载/查询改写等技术实现（**不放对外 service**） |
+| `service/` · `tool/` | 业务逻辑（含面向 RAG/知识库的服务）· Agent 工具 |
 | `notes/` · `docs/` | 知识库素材（处理后作 RAG）· 文档 |
 
-新增功能按职责归类：配置→config/，工具→tool/，检索→rag/，DTO→model/。
+新增功能按职责归类：配置→config/，工具→tool/，检索→rag/，DTO→model/，常量→constant/，业务逻辑→service/，启动自检→bootstrap/。
+**分层优先**：对外 service 一律放 `service/`，即使它服务于 RAG/知识库领域也不放进 `rag/`（`rag/` 只放技术实现）。
+**项目结构尚未完善**：新增代码若没有对应职责的包，**直接新建即可**（如已新建的 `bootstrap/`；跨功能共用的枚举变多时可新建 `enums/`），逐步补齐结构，不要为了"不新建包"把类塞进不合适的包。
+枚举归属现状：优先随所属功能包（`agent/model/AgentState`、`degradation/FallbackStrategy`、`model/DocumentStatus`）。
 
 ---
 
@@ -68,6 +75,8 @@
 ### 命名与代码风格
 - ✅ 命名规范：类/组件大驼峰，方法/变量小驼峰，常量全大写，包/目录全小写，见名知意禁随意缩写
 - ✅ 格式统一：缩进、引号、分号、行宽按项目约定；文件 UTF-8
+- ✅ 编辑器格式约定见根目录 `.editorconfig`（UTF-8 / CRLF，Java 4 空格、前端与配置 2 空格，`.sh` 用 LF，`.bat`/`.cmd` 用 CRLF，末行换行）；**不引入** Spotless、Prettier 等强制校验工具
+- ✅ 行尾规则写进**受版本管理**的 `.gitattributes`（它被 `.gitignore` 忽略时只对本机生效，`core.autocrlf=true` 还会在检出时把 CRLF 写回工作区）
 - ✅ 新代码模仿项目现有写法，保持风格一致，不引入异类写法
 
 ### 依赖与配置
@@ -161,6 +170,7 @@
 40. **AI 误把 tmp/file 当知识库**：prompt.yml 明确"工作缓存非知识库"，禁止主动 listFiles
 45. **历史会话按 updatedAt 排序**：null 回退 createdAt 且排最后，勿在 MongoDB 层 Sort
 46. **RAG 引用门控**：仅当回复含 [n] 标注才下发 references
+56. **知识库文档目录写入限制**：上传写在 `app.knowledge.document-dir`，jar 部署该目录只读、上传必失败；加载器须「真实目录优先 + classpath 回退」；预处理分割线插入须幂等；重新入库先删旧向量
 
 ### 前端陷阱（Vue Web）
 6. **localStorage 非响应式**：必须用 auth.js 响应式 ref，禁止 computed 里读 getUsername()
@@ -175,7 +185,11 @@
 44. **AI 下载地址需前端链接化**：linkify.js 链接化 /api/ 根相对路径，跳过 pre/code
 49. **语音识别(STT)错误提示**：录音过短(<0.6s)前端拦截；后端 400 响应带 message；前端优先取 response.data.message，再按状态码/网络/超时映射中文提示
 50. **历史对话滚动条与收起按钮重叠**：收起按钮置于侧边栏右缘外侧（left:260px 不居中），滚动条保持贴右侧边框
-51. **user-dock 与历史对话重叠**：/knowledge 页 showDock 恒 false，暂时隐藏个人信息组件（布局待后续优化）
+51. **user-dock 与页面内容重叠**：`/knowledge` 与 `/knowledge-documents` 两页 `showDock` 恒 false，暂时隐藏个人信息组件（布局待后续优化）
+52. **flex 列容器子项被压扁裁切**：子项 `overflow` 非 visible 时「自动最小尺寸」为 0，必须显式 `flex-shrink: 0`
+53. **自定义浮层（下拉/菜单）必须 Teleport + fixed**：`html, body { overflow-x: hidden }` 使 body 成为滚动容器，absolute 浮层会被裁剪
+54. **详情类请求要做时序保护**：先发的响应后到会覆盖后发的，用递增请求序号只采纳最新
+55. **「可操作状态」用白名单判断**：`!isRunning()` 会放过已完成状态，应显式列出允许的状态值
 
 ### 脚本工具陷阱（html-to-md / 文档处理）
 35. **HtmlToMarkdownConverter 要点**：getWholeText / 递归子节点防自环 / 跳过代码围栏 / 保留原文
