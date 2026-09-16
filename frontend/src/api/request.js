@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getToken, removeToken } from '../utils/auth'
+import { getToken, setToken, removeToken } from '../utils/auth'
 
 const BASE_URL = ''  // 同源相对路径，生产环境 /api 由 nginx 反代（内网穿透）
 // const BASE_URL = import.meta.env.DEV ? '' : 'http://localhost:8123'
@@ -220,4 +220,65 @@ export function deleteChat(chatId) {
  */
 export function batchDeleteChats(chatIds) {
   return request.post('/ai/knowledge/chat/history/batch-delete', { chatIds })
+}
+
+/**
+ * 拉取当前登录用户信息（用户名 + 管理员标识），用于刷新页面后恢复登录态
+ */
+export async function fetchCurrentUser() {
+  const res = await request.get('/auth/me')
+  const data = res.data || {}
+  setToken(getToken(), data.username, data.isAdmin)
+  return data
+}
+
+/**
+ * 知识库文档列表（管理员）
+ */
+export function fetchKnowledgeDocuments({ keyword = '', page = 1, size = 10, sort = 'time_desc' } = {}) {
+  const query = 'keyword=' + encodeURIComponent(keyword)
+    + '&page=' + page + '&size=' + size
+    + '&sort=' + encodeURIComponent(sort)
+  return request.get('/ai/knowledge/document/list?' + query)
+}
+
+/**
+ * 知识库文档详情（磁盘当前内容 + 分块结果）
+ */
+export function fetchKnowledgeDocumentContent(filename) {
+  return request.get(`/ai/knowledge/document/${encodeURIComponent(filename)}/content`)
+}
+
+/**
+ * 上传知识库文档（仅 .md，后台异步预处理与向量化）
+ */
+export function uploadKnowledgeDocument(file) {
+  const formData = new FormData()
+  formData.append('file', file, file.name)
+  // 覆盖实例默认的 application/json，置空后浏览器自动生成 multipart/form-data 及 boundary
+  return request.post('/ai/knowledge/document/upload', formData, {
+    timeout: 60000,
+    headers: { 'Content-Type': undefined },
+  })
+}
+
+/**
+ * 删除知识库文档（同时清理向量切片）
+ */
+export function deleteKnowledgeDocument(filename) {
+  return request.delete(`/ai/knowledge/document/${encodeURIComponent(filename)}`)
+}
+
+/**
+ * 批量删除知识库文档
+ */
+export function batchDeleteKnowledgeDocuments(filenames) {
+  return request.post('/ai/knowledge/document/batch-delete', { filenames })
+}
+
+/**
+ * 重新入库（清理该文档已入库切片后重跑预处理与向量化）
+ */
+export function reindexKnowledgeDocument(filename) {
+  return request.post(`/ai/knowledge/document/${encodeURIComponent(filename)}/reindex`)
 }

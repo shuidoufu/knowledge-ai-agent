@@ -2,7 +2,7 @@ package com.example.aiagent.controller;
 
 import com.example.aiagent.agent.Manus;
 import com.example.aiagent.app.KnowledgeApp;
-import com.example.aiagent.rag.YuqueDocumentSyncService;
+import com.example.aiagent.service.YuqueDocumentSyncService;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;

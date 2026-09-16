@@ -90,6 +90,10 @@
 	              <Lock class="dropdown-icon" size="18" />
 	              修改密码
 	            </button>
+	            <button v-if="reactiveIsAdmin" type="button" class="dock-dropdown-item" @click="goKnowledgeDocuments">
+	              <Database class="dropdown-icon" size="18" />
+	              知识库管理
+	            </button>
 	            <button type="button" class="dock-dropdown-item" @click="logout">
 	              <LogOut class="dropdown-icon" size="18" />
 	              退出登录
@@ -104,9 +108,12 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { request } from './api/request'
-import { isLoggedIn, getUsername, removeToken, token, username as reactiveUsername } from './utils/auth'
-import { Check, AlertCircle, Info, User, Lock, LogOut } from '@lucide/vue'
+import { request, fetchCurrentUser } from './api/request'
+import {
+  isLoggedIn, getUsername, removeToken, token,
+  username as reactiveUsername, isAdmin as reactiveIsAdmin,
+} from './utils/auth'
+import { Check, AlertCircle, Info, User, Lock, LogOut, Database } from '@lucide/vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -134,11 +141,11 @@ provide('showToast', showToast)
 const chatBatchMode = ref(false)
 provide('chatBatchMode', chatBatchMode)
 
-// ===== 启动时验证 token 有效性 =====
+// ===== 启动时验证 token 有效性并恢复登录态（含管理员标识） =====
 onMounted(async () => {
   if (isLoggedIn()) {
     try {
-      await request.get('/auth/me')
+      await fetchCurrentUser()
     } catch {
       // token 无效或后端重启，清除登录状态
       removeToken()
@@ -147,16 +154,28 @@ onMounted(async () => {
   }
 })
 
+// 路由跳转带回的提示（如权限不足被拦回首页）：提示一次后清理 query，避免刷新重复弹出
+// 登录页的提示由登录页自身展示，此处跳过避免重复
+watch(() => route.query.msg, (msg) => {
+  if (typeof msg !== 'string' || !msg) return
+  if (route.path === '/login') return
+  showToast(msg, 'error')
+  const query = { ...route.query }
+  delete query.msg
+  router.replace({ path: route.path, query })
+})
+
 // ===== 移动端检测（<=768px） =====
 const isMobile = ref(false)
 function updateIsMobile() {
   isMobile.value = window.innerWidth <= 768
 }
 
-// 是否显示 dock：移动端聊天页隐藏（避免遮挡底部输入区）；/knowledge 历史对话页始终隐藏（避免与历史对话列表重叠，交互待后续优化）
+// 是否显示 dock：移动端聊天页隐藏（避免遮挡底部输入区）；/knowledge 历史对话页与 /knowledge-documents 知识库管理页始终隐藏（避免与历史对话列表、批量操作条重叠）
 const showDock = computed(() => {
   if (isMobile.value && (route.path === '/knowledge' || route.path === '/manus')) return false
-  if (route.path === '/knowledge') return false // 历史对话页暂时隐藏个人信息组件，避免与历史对话列表重叠
+  // 历史对话页与知识库管理页隐藏个人信息组件，避免与列表/底部批量操作条重叠（入口可经页面返回键回到首页使用）
+  if (route.path === '/knowledge' || route.path === '/knowledge-documents') return false
   return true // 其他页面始终显示
 })
 
@@ -195,6 +214,7 @@ function handleClickOutside(e) {
   if (avatarWrapRef.value && !avatarWrapRef.value.contains(e.target)) closeDropdown()
 }
 function goChangePassword() { closeDropdown(); router.push('/change-password') }
+function goKnowledgeDocuments() { closeDropdown(); router.push('/knowledge-documents') }
 function logout() {
   request.post('/auth/logout').catch(() => {})
   removeToken()
