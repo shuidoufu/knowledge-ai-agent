@@ -350,8 +350,6 @@ const ragEnabled = ref(true)
 const isSidebarOpen = inject('isSidebarOpen', ref(true))
 const setSidebarOpen = inject('setSidebarOpen', (v) => {})
 const showToast = inject('showToast', () => {})
-// 批量管理模式（App.vue 据此隐藏 user-dock，避免遮挡侧边栏底部按钮条）
-const chatBatchMode = inject('chatBatchMode', ref(false))
 
 // 移动端检测（<=768px）
 const isMobile = ref(false)
@@ -471,7 +469,6 @@ function onBatchManage() {
   menuChatId.value = ''
   batchMode.value = true
   selectedChatIds.value = []
-  chatBatchMode.value = true
 }
 
 // 三点菜单：打开修改标题弹窗（预填当前标题）
@@ -526,7 +523,6 @@ function exitBatchMode() {
   batchMode.value = false
   selectedChatIds.value = []
   confirmBatchDelete.value = false
-  chatBatchMode.value = false
 }
 
 // 批量删除确认后执行：调用接口，成功后刷新列表（当前会话被删则新建）
@@ -636,7 +632,6 @@ function logout() {
 }
 
 onUnmounted(() => {
-  chatBatchMode.value = false
   window.removeEventListener('resize', updateIsMobile)
   document.removeEventListener('error', handleImageError, true)
   document.removeEventListener('keydown', handleKeydown)
