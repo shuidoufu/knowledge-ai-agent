@@ -4,8 +4,8 @@
 
 ## 项目状态
 
-- 当前分支：`knowledge-doc-manage`（自 `test` 拉出的临时分支，仅供"知识库文档管理"需求使用，完成后由用户删除）
-- 一句话现状：规则体系、子智能体、进度/版本管理全部落地并已提交推送；P2 自动化测试框架评估后放弃，测试维持手动。Web 端「知识库文档管理」已在 `knowledge-doc-manage` 分支开发完成并通过自测（管理员门控 + 文档上传/删除/列表/查看/搜索 + 状态可视化），**待用户验收**。
+- 当前分支：`test`。「知识库文档管理」已于 2026/9/16 合并到 `test` 并推送 `origin/test`（本地与远端同步 0/0）；2026/9/20 完成遗留问题 ⑤（触控目标 ≥44×44）与版本号升级（`0.1.1`），并按用户决定把 `test` 的功能提交 cherry-pick 到 `master`（`master` 仅本地提交，未推送）。临时分支 `knowledge-doc-manage` 仍在（指向 `8c0b116`），待删除
+- 一句话现状：规则体系、子智能体、进度/版本管理全部落地并已提交推送；P2 自动化测试框架评估后放弃，测试维持手动。Web 端「知识库文档管理」（管理员门控 + 上传/删除/列表/查看/搜索 + 状态可视化 + 重新入库）已开发完成，自测与独立审查通过，**2026/9/16 用户验收通过**，三处前端问题与遗留 ③④ 修复后合并到 `test` 并推送；规则文档已同步。2026/9/20 应用户要求处理 `master`（cherry-pick 而非合并）、升级版本号并优化遗留 ⑤，存量空白/行尾统一暂缓。
 
 ## 需求 / 任务清单
 
@@ -24,7 +24,7 @@
 | [x] 完成 | web: 历史对话滚动条与收起按钮重叠 | 收起按钮置于侧边栏右缘外侧(left:260px 不居中)，滚动条贴右侧边框 |
 | [x] 完成 | web: 隐藏历史对话中的个人信息组件 | /knowledge 页 user-dock 恒隐藏（临时方案，见后续优化） |
 
-### 本次需求（分支 `knowledge-doc-manage`，仅 Web 端）—— 开发与自测已完成，待验收
+### 本次需求（仅 Web 端）—— 已完成并通过验收（2026/9/16 合并到 `test` 并推送）
 
 | 状态 | 任务 | 说明 / 验收点 |
 |------|------|--------------|
@@ -37,7 +37,7 @@
 | [x] 完成 | 页面布局 | 按确认结论：不做统计卡、不做分类列；底部「共 N 条 · 第 X/Y 页」分页 |
 | [x] 完成 | 自测 | 后端全链路 + 失败路径 + 403/401 + 回归；前端 build + 浏览器实操；独立代码审查 + 独立功能交叉验证（见改动记录） |
 
-### 前端问题修复（2026/9/16，同分支 `knowledge-doc-manage`）
+### 前端问题修复（2026/9/16）
 
 | 状态 | 问题现象 | 根因 | 处理方式 |
 |------|----------|------|----------|
@@ -65,13 +65,15 @@
   ② ~~**批量操作条与左下角 user-dock 重叠**：视口宽约 769–850px 时 dock（`z-index:999`，`left:20px; bottom:20px`）压住批量条"取消"按钮文字并抢走点击。~~ **已于 2026/9/16 修复**：按用户要求直接在 `/knowledge-documents` 隐藏 user-dock（见改动记录）；`App.vue` 中 `provide('chatBatchMode')` 目前仍无人消费，属既有无效机制，未动。
   ③ ~~**`canReindex` 与注释不符**：注释写"未入库与失败状态可重新入库"，实现为 `!isRunning(doc)`，导致已完成文档也显示「重新入库」按钮。~~ **2026/9/16 二次修正**：先按"白名单（未入库/失败）"收紧，实测后用户反馈**日常用的重跑入口被一起收掉了**（"重新入库的按钮怎么没了"）——说明该按钮既是失败恢复也是主动重跑入口。最终方案：`canReindex` 恢复为 `!isRunning(doc)`（预处理中/向量化中不可点），并对**已完成**文档增加二次确认弹窗（重跑先删旧切片，失败会掉到「失败」态）；未入库与失败无切片可丢，直接重跑不确认。
   ④ ~~**`openDetail` 无请求时序保护**：先点 A→关闭→点 B 时，A 的响应后到会覆盖 B 的内容，失败分支还会关掉刚打开的 B 弹窗。~~ **已于 2026/9/16 修复**：`openDetail` 引入递增请求序号，仅采纳最新请求的响应；`closeDetail` 使进行中请求失效。已用"延迟首个请求造成乱序"的方式验证（见改动记录）。
-  ⑤ **存量触控目标 <44px**：`.row-btn` 36×36（≤768px 才升 44）、`.pager-btn` 40×40、`.icon-btn` 40×40、`.check-circle` 22×22，属项目既有模式，本次未引入新风格。
+  ⑤ ~~**存量触控目标 <44px**：`.row-btn` 36×36（≤768px 才升 44）、`.pager-btn` 40×40、`.icon-btn` 40×40、`.check-circle` 22×22，属项目既有模式。~~ **已于 2026/9/20 优化**：`.row-btn` / `.pager-btn` / `.icon-btn` 统一为 44×44（`.row-btn` 加 `flex-shrink: 0` 防止被固定列宽压扁），`.check-circle` 保持 22px 视觉、用 `::before`（显式 `width/height: 44px` + 负 margin 居中）把可点区域扩到 44×44；勾选列 28→44px、操作列 128→144px（3 个 44px 按钮 + 2 个 6px 间距），并清掉 ≤768px 的 `.row-btn` 44px 与 ≤1024px 的 `.col-actions` 116px 两条已冗余的覆盖。**注意**：伪元素若用 `inset: -11px` 扩展，因绝对定位的包含块是 padding box，会被 `.check-circle` 的 1.5px 边框吃掉，实测只有 41.33px；改用显式 44×44 + `margin: -22px` 才是准确尺寸
+- **存量空白 / 行尾统一（已同意，用户 2026/9/20 决定暂缓）**：清掉 `.editorconfig` 落地前的历史差异——制表符缩进 `App.vue`(148 处) / `Login.vue`(120) / `KnowledgeChat.vue`(379) / `ManusChat.vue`(185) / `ChangePassword.vue`(115)，LF 行尾 `frontend/src/main.js` / `frontend/vite.config.js` / `AiAgentApplication.java`，以及 `DocumentPreprocessor` 的行尾空格。用户暂时不想改动现有格式，需要时再作为独立提交处理（执行时须 build + 抽查 Vue 渲染，`application.yml` 被 `.gitignore` 忽略、不入库）
 
 
 ## 本次改动记录（最新在前）
 
 | 日期 | 改动 | 涉及文件/模块 | 是否已测/已审 |
 |------|------|--------------|--------------|
+| 2026/9/20 | **遗留问题 ⑤ 触控目标优化 + 版本号升级 + `master` 同步（cherry-pick）**：① 知识库管理页触控目标统一到 ≥44×44——`.row-btn` 36→44 并补 `flex-shrink: 0`（防止被固定列宽的 `.col-actions` 压扁）、`.pager-btn` 与 `.icon-btn` 40→44、`.check-circle` 保持 22px 视觉并用 `::before` 把可点区域扩到 44×44（显式 `width/height: 44px` + `top/left:50%` + `margin:-22px` 居中；最初写的 `inset:-11px` 实测只有 41.33px——绝对定位伪元素的包含块是 padding box，会被 1.5px 边框吃掉）；列宽同步调整：勾选列 28→44px、操作列 128→144px（3×44 + 2×6），并删掉 ≤768px 的 `.row-btn` 44px、≤1024px 的 `.col-actions` 116px 两条已冗余覆盖；② 版本号 `0.0.1-SNAPSHOT` → `0.1.1`：`CHANGELOG.md` 中 2026-09-16 的功能条目改记为 `0.1.0`，顶部新增 `0.1.1 / 2026-09-20`；③ 按用户决定把 `test` 的功能提交 cherry-pick 到 `master`（不用 merge，避免复活 `master` 已删的语料与 skills 文件） | `frontend/src/views/KnowledgeDocuments.vue`、`pom.xml`、`CHANGELOG.md`、`PROGRESS.md`、`master` 分支 | 是（前端 `npm run build` 通过；浏览器实测：30 个 `.row-btn` 与 `.pager-btn` / `.icon-btn` 均 44×44 且 `flex-shrink` 为 0；`.check-circle` 视觉 22×22、`::before` 计算值恰为 44×44，`elementFromPoint` 在中心 ±21px 命中按钮自身、±22px 落空（不外溢到名称列，名称列在 +30px 仍为 `col-name`）；1280 与 375 宽度下页面与表格行均无横向溢出、批量模式下勾选列 44px 仍不挤破卡片；回归通过：批量模式进出/单选/全选、详情弹窗开关（关闭按钮 44×44）、分块 14 项高度统一 87.3px、排序下拉三项与选中生效、翻页 1↔2 页） |
 | 2026/9/16 | **按用户反馈恢复「重新入库」入口 + 二次确认**：先前的收紧把管理员日常用的重跑入口一起收掉了（用户反馈"重新入库的按钮怎么没了"），故 ① `canReindex` 从白名单（仅未入库/失败）恢复为 `!isRunning(doc)`，预处理中/向量化中不可点、其余状态均可重跑；② 新增 `confirmReindexDoc` 状态与 `askReindex`/`confirmReindex` 函数 + 确认弹窗（复用既有 `.modal-content` 与 `.modal-btn.confirm.green`，文案含文件名与待删切片数），**已完成**文档点重跑先确认（重跑先删旧切片，失败会从「已完成」掉到「失败」），未入库/失败无切片可丢则直接重跑 | `frontend/src/views/KnowledgeDocuments.vue`、`AGENTS.md`（陷阱 55 重写）、`docs/known-pitfalls.md`（详情 55 重写）、`CHANGELOG.md`、`PROGRESS.md` | 是（前端 build 通过 + 格式核查；浏览器实测：10 行「已完成」显示 10 个重新入库按钮；点按钮弹确认框、文案为"将先删除已有 2 个切片"；**取消** → 0 次 reindex 请求、状态仍「已完成」；**确认重跑** → 1 次 `POST .../reindex`、状态转「预处理中」、toast 正确，轮询后回到「已完成」，接口复查 `COMPLETED` + `chunkCount: 2`（对切片最少的一篇 Git 文档做了真实重跑，幂等））；**副作用已处理**：该文档受版本管理，重跑会原地覆盖磁盘文件（本次多出 2 个尾部空行），已 git checkout 还原，工作区无残留；该行为已记入陷阱 56 |
 | 2026/9/16 | **遗留问题 ③④ 修复 + `.gitattributes` 纳入版本管理**：① `canReindex` 由 `!isRunning(doc)` 收紧为白名单 `REINDEXABLE_STATUSES`（未入库 / 预处理失败 / 向量化失败），已完成文档不再显示「重新入库」按钮（**该收紧随后按用户实际使用反馈恢复，见上一条改动记录**）；② `openDetail` 增加递增请求序号 `detailRequestId`，仅采纳最新请求的响应，`closeDetail` 使进行中请求失效，修掉"先点 A → 关闭 → 点 B 时，A 的响应后到覆盖 B 内容 / A 失败时关掉 B 弹窗"的时序竞态；③ `.gitignore` 移除 `.gitattributes`，该文件（`/mvnw text eol=lf`、`*.cmd text eol=crlf`、`*.sh text eol=lf`）改为纳入版本管理，行尾规则从此对所有克隆生效 | `frontend/src/views/KnowledgeDocuments.vue`、`.gitignore`、`.gitattributes`（转为受版本管理）、`PROGRESS.md` | 是（前端 build 通过；③ 浏览器实测：10 行全部"已完成"时「重新入库」按钮 0 个、查看内容按钮完好；④ 用"延迟首个 `/content` 请求 2.5s"制造真实乱序，**反证**——撤掉守卫时最终显示 A（A 响应 5276ms 晚于 B 的 3906ms）、恢复守卫后显示 B，失败路径另测：A 请求报错时 B 弹窗仍在、内容为 B、无误报提示） |
 | 2026/9/16 | **知识库管理页收尾项（按用户确认执行）**：① `/knowledge-documents` 隐藏左下角 user-dock——`App.vue` 的 `showDock` 增加该路径，修掉 769–850px 视口下 dock（`z-index:999`）压住批量操作条"取消"按钮文字并抢走点击；② `script/html-to-md.sh`、`script/preprocess-docs.sh` 由 CRLF 转 LF，消除 Git Bash 下 `bad interpreter: /bin/bash^M` 隐患（HEAD 中本就存 LF，故工作区转换后 `git diff` 为空、无需提交）；③ `.gitattributes` 补 `*.sh text eol=lf`，否则 `core.autocrlf=true` 会在下次检出时把脚本改回 CRLF；④ `AGENTS.md`「命名与代码风格」增加一行指向根目录 `.editorconfig`，并写明不引入 Spotless/Prettier | `frontend/src/App.vue`、`script/html-to-md.sh`、`script/preprocess-docs.sh`、`.gitattributes`（当时本机未跟踪且在 `.gitignore` 中，随后已按用户确认移出并纳入版本管理）、`AGENTS.md`、`PROGRESS.md` | 是（前端 build 通过；浏览器实测 800px 视口下批量条"取消"按钮 `elementFromPoint` 命中按钮自身、dock `opacity:0` + `pointer-events:none`；`/` 首页 dock 仍正常显示，`/knowledge`、`/knowledge-documents` 隐藏；两个脚本行尾复核 CRLF=0） |
@@ -93,23 +95,22 @@
 - ⚠️ 任务状态存内存：后端重启后「失败原因」丢失，降级为「未入库」（文件与向量不受影响，点「重新入库」可恢复）
 - ⚠️ 本机未安装 mongosh，管理员授权目前只能用 MongoDB Compass 或自备脚本执行（命令见「后续优化（待办）」）
 - AGENTS_BAK.md 为未跟踪备份文件，按提交规则（只提交本次改动文件）不应入库
-- AGENTS.md 与 CLAUDE.md 需保持一致（本次改动尚未同步规则文档，按规则待用户验收后统一同步）
+- AGENTS.md 与 CLAUDE.md 需保持一致（本次改动的规则文档已同步：AGENTS.md 目录结构/已知陷阱/命名与代码风格、`docs/known-pitfalls.md` 详情 51–56；CLAUDE.md 未涉及本功能，无需改动）
 - 自动化测试框架（JUnit/vitest）已决定不引入（P2 评估后放弃），测试维持手动 curl/页面
 - MCP 服务暂不配置（后续可能接数据库 MCP，待定）
 - ⚠️ 用 `local` profile 启动时，`spring.ai.mcp.client.stdio` 会用 `npx` 拉起高德地图 MCP server，启动偶发超时导致启动失败（本次自测期间遇到一次，改用默认 profile 即不触发）；该配置文件里 API Key 仍是占位值 `改成你的 API Key`
 - code-test 子智能体已实跑验证生效（本次）；浏览器级 UI 交互无 headless 环境未覆盖
-- ⚠️ 本次 web 端 3 处修复已做前端 build / 后端 compile 验证，但**页面级交互未 headless 验证**（录音需真实麦克风、滚动条重叠需窄屏视觉确认），建议用户本地 `npm run dev` 复核
-- ⚠️ /knowledge 页个人信息组件(user-dock)已临时隐藏，副作用为桌面端该页暂无"修改密码/退出登录"入口，见「后续优化」
+- ⚠️ 本次 web 端 3 处修复已完成**浏览器级验证**：分块列表修复前后逐项量过尺寸（修复前 76 个分块各被压成 1px、修复后统一 87px 零裁切）、下拉面板定位与关闭路径、排序请求次数由 2 降 1、375px 无横向溢出；遗留 ③④ 亦用"注入延迟制造乱序 + 撤守卫反证"的方式验证。历史遗留的录音/滚动条类修复仍建议本地 `npm run dev` 复核（需真实麦克风）
+- ⚠️ `/knowledge` 与 `/knowledge-documents` 两页的个人信息组件(user-dock)已临时隐藏（前者避免与历史列表重叠，后者避免遮挡批量操作条），副作用为这两页暂无"修改密码/退出登录"入口（知识库管理页可经「返回」回首页使用），见「后续优化」
 
 ## 下一步
 
-1. ⏳ **等待用户验收**「知识库文档管理」（分支 `knowledge-doc-manage`；启动：`script\start-backend.bat` + `cd frontend && npm run dev`，管理员入口在主页左下角头像下拉）
-2. 验收后：合并回 `master` 并删除 `knowledge-doc-manage` 分支
+1. **`master` 如何处理——已定（2026/9/20）：按用户决定采用 cherry-pick**。`master` 与 `test` 是**分叉**而非落后（合并基点 `643cc13`）：`master` 侧删除了 `.agents/skills/ui-ux-pro-max/**`（28 个）、`document/` 与 `notes/` 下文档（约 35 个）、`PROGRESS.md`，合计约 2.25 万行，另有 4 个 `test` 没有的提交（9/1 两条 Web 修复、"项目优化"、9/3 API-KEY）；`test` 侧有 6 个 `master` 没有的提交。**直接合并会让 `master` 已删除的语料库与 skills 文件全部复活**，故只把 `test` 的功能提交 cherry-pick 过去：源提交 `d3200a6`（功能）/ `3a4013c`（.editorconfig + .gitattributes）/ `8c0b116`（文档同步）/ `28d5f9a`（重入库入口恢复）+ 本次 2026/9/20 的新提交；`test` 独有的 9/1 Web 修复与 9/3 API-KEY 两条 `master` 已有同内容提交，不重复 pick。`PROGRESS.md` 在 `master` 侧已删除且被 `.gitignore` 忽略，cherry-pick 遇到该文件的改动一律保持"删除"、不复活
+2. **版本号——已完成（2026/9/20）**：`pom.xml` `0.0.1-SNAPSHOT` → `0.1.1`；`CHANGELOG.md` 中 2026-09-16 的功能条目改为 `0.1.0`，顶部新增 `0.1.1 / 2026-09-20`（触控目标优化）
 3. 规则文档同步：**已完成（2026/9/16）**——`AGENTS.md`「目录结构」章节（补 `bootstrap/`/`constant/`/`degradation/`/`demo/` 四个包 + "分层优先" + "缺包就新建"）；「已知陷阱」索引新增 52–56（flex 子项压扁、浮层 Teleport+fixed、请求时序竞态、可操作状态白名单、知识库目录写入限制）并扩写 51（覆盖两页 dock 隐藏）；「命名与代码风格」补 `.editorconfig` 与 `.gitattributes` 两条；`docs/known-pitfalls.md` 同步详情 52–56 与 51；`README.md`「知识库文档维护」补 Web 管理页说明与 jar 部署限制；`CHANGELOG.md` 补 `0.0.1-SNAPSHOT / 2026-09-16` 条目
-4. 提交注意：`frontend/src/api/request.js` 现已改回 `BASE_URL = ''`（陷阱 38 不再存在），且本次功能的新增接口都在该文件里，**需随本次改动一起入库**（原「排除 request.js」的旧决策已失效，请确认）
-5. 提交注意：工作区里 `.agents/skills/ui-ux-pro-max/**` 的 28 项删除与本需求无关，按规则逐个 `git add <文件>`，不要带进来
-6. **待办：存量空白/行尾统一（用户已同意）**——单独一个 `chore: 统一空白与行尾` 提交，清掉 `.editorconfig` 落地前留下的差异（`App.vue`/`Login.vue`/`KnowledgeChat.vue`/`ManusChat.vue`/`ChangePassword.vue` 的制表符缩进、`frontend/src/main.js`/`vite.config.js`/`application.yml`/`AiAgentApplication.java` 的 LF 行尾、`DocumentPreprocessor` 的行尾空格）。**必须在功能提交之后单独做**，否则会与功能 diff 混在同一批改动里，无法拆成两个提交
-7. **`.gitattributes` 已按用户确认改为纳入版本管理**：`.gitignore` 中的该行已移除，文件现为可提交状态（内容：`/mvnw text eol=lf`、`*.cmd text eol=crlf`、`*.sh text eol=lf`），提交时需 `git add .gitattributes` 与 `.gitignore` 一起入库，否则行尾规则仍只在本机生效
-8. 提交说明（已核实）：`src/main/resources/application.yml` 被 `.gitignore` 第 32 行忽略、未纳入版本管理，**故本次新增的配置项 `app.knowledge.document-dir` 不会入库**——代码里带了默认值 `src/main/resources/document`，其他环境不受影响；该配置项的含义已写进 README
-9. 提交说明（已核实）：`src/main/resources/document/` 整个目录被 `.gitignore` 第 26 行忽略，**运行时上传的文档不会出现在 git 工作区**（仓库里那 23 篇是忽略规则之前就已入库的跟踪文件，不受影响）
-10. 后续需求：用户管理功能（给用户授予管理员，见「后续优化（待办）」）
+4. **遗留问题 ①：应用外壳在较矮视口下完全不滚动**——实测 1280×720 下 `document.scrollingElement.scrollHeight === innerHeight`、设 `scrollTop` 无效，列表第 10 行与底部分页不可达（窗口够高时不暴露）。需单独排查外壳滚动方案，影响面覆盖全部页面
+5. ~~**遗留问题 ⑤：存量触控目标 <44px**~~ **已完成（2026/9/20）**：`.row-btn` / `.pager-btn` / `.icon-btn` 统一 44×44，`.check-circle` 保持 22px 视觉、可点区域扩到 44×44（详见「后续优化」与改动记录）
+6. ~~`.gitattributes` 纳入版本管理~~ **已完成（2026/9/16，提交 `3a4013c` 并已推送）**：`.gitignore` 中的忽略项已移除，`/mvnw` 与 `*.sh` 固定 LF、`*.cmd` 固定 CRLF，行尾规则对所有克隆生效
+7. 提交说明（已核实）：`src/main/resources/application.yml` 被 `.gitignore` 第 32 行忽略、未纳入版本管理，**故本次新增的配置项 `app.knowledge.document-dir` 不会入库**——代码里带了默认值 `src/main/resources/document`，其他环境不受影响；该配置项的含义已写进 README
+8. 提交说明（已核实）：`src/main/resources/document/` 整个目录被 `.gitignore` 第 26 行忽略，**运行时上传的文档不会出现在 git 工作区**（仓库里那 23 篇是忽略规则之前就已入库的跟踪文件，不受影响）
+9. 清理与后续需求：删除临时分支 `knowledge-doc-manage`（现指向 `8c0b116`，比 `test` 少最后一条提交）；用户管理功能（给用户授予管理员）；个人信息入口重构（两页 user-dock 临时隐藏的收尾）——见「后续优化（待办）」

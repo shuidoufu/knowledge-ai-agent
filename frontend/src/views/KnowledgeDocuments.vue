@@ -1287,9 +1287,10 @@ onUnmounted(() => {
   background: rgba(52, 211, 153, 0.08);
 }
 
+/* 列宽容纳 44px 的可点区域，勾选圈本身仍是 22px */
 .col-check {
-  flex: 0 0 28px;
-  width: 28px;
+  flex: 0 0 44px;
+  width: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1353,9 +1354,10 @@ onUnmounted(() => {
   color: #94a3b8;
 }
 
+/* 3 个 44px 操作按钮 + 2 个 6px 间距 = 144px */
 .col-actions {
-  flex: 0 0 128px;
-  width: 128px;
+  flex: 0 0 144px;
+  width: 144px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -1408,10 +1410,11 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-/* 行内操作按钮 */
+/* 行内操作按钮（触控目标不小于 44×44） */
 .row-btn {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1448,8 +1451,9 @@ onUnmounted(() => {
   height: 17px;
 }
 
-/* 勾选圈（沿用历史对话批量管理样式） */
+/* 勾选圈（沿用历史对话批量管理样式）：视觉仍为 22px，靠伪元素把可点区域扩到 44×44 */
 .check-circle {
+  position: relative;
   width: 22px;
   height: 22px;
   padding: 0;
@@ -1476,6 +1480,17 @@ onUnmounted(() => {
 .check-circle .icon {
   width: 13px;
   height: 13px;
+}
+
+.check-circle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
 }
 
 /* ===== 空态 / 加载 ===== */
@@ -1518,8 +1533,8 @@ onUnmounted(() => {
 }
 
 .pager-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1798,8 +1813,8 @@ onUnmounted(() => {
 }
 
 .icon-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -2140,11 +2155,6 @@ onUnmounted(() => {
     flex: 0 0 120px;
     width: 120px;
   }
-
-  .col-actions {
-    flex: 0 0 116px;
-    width: 116px;
-  }
 }
 
 @media (max-width: 768px) {
@@ -2179,7 +2189,7 @@ onUnmounted(() => {
 
   .col-check {
     order: 0;
-    flex: 0 0 28px;
+    flex: 0 0 44px;
   }
 
   .col-name {
@@ -2192,11 +2202,6 @@ onUnmounted(() => {
     flex: 0 0 auto;
     width: auto;
     margin-left: auto;
-  }
-
-  .row-btn {
-    width: 44px;
-    height: 44px;
   }
 
   .col-size,
