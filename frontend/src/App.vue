@@ -137,9 +137,6 @@ function showToast(message, type = 'info', duration = 3000) {
   }, duration)
 }
 provide('showToast', showToast)
-// 知识库页批量管理模式：批量时隐藏 user-dock（与侧边栏底部按钮条互斥，避免遮挡）
-const chatBatchMode = ref(false)
-provide('chatBatchMode', chatBatchMode)
 
 // ===== 启动时验证 token 有效性并恢复登录态（含管理员标识） =====
 onMounted(async () => {
