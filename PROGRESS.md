@@ -5,7 +5,7 @@
 ## 项目状态
 
 - 当前分支：`test`。「知识库文档管理」已于 2026/9/16 合并到 `test` 并推送 `origin/test`（本地与远端同步 0/0）；2026/9/20 完成遗留问题 ⑤（触控目标 ≥44×44）与版本号升级（`0.1.1`），并按用户决定把 `test` 的功能提交 cherry-pick 到 `master`——新增 5 个提交 `044c12b`（功能）/ `02237c9`（`.editorconfig` + `.gitattributes`）/ `e9a038e`（文档同步）/ `d6bd839`（重入库入口恢复）/ `95c798a`（触控目标 + 版本号），`PROGRESS.md` 冲突按"保持删除"处理，`master` 已编译通过（`JAVA_HOME=…/JAVA_JDK17 ./mvnw -o compile` BUILD SUCCESS、79 个源文件）。**2026/9/20 用户已手动 push 两个分支**：`master` = `origin/master` = `95c798a`、`test` = `origin/test` = `0331166`，本地与远端均同步（无 ahead/behind）；临时分支 `knowledge-doc-manage` 已由用户删除
-- 一句话现状：规则体系、子智能体、进度/版本管理全部落地并已提交推送；P2 自动化测试框架评估后放弃，测试维持手动。Web 端「知识库文档管理」（管理员门控 + 上传/删除/列表/查看/搜索 + 状态可视化 + 重新入库）已开发完成，自测与独立审查通过，**2026/9/16 用户验收通过**，三处前端问题与遗留 ③④ 修复后合并到 `test` 并推送；规则文档已同步。2026/9/20 应用户要求处理 `master`（cherry-pick 而非合并）、升级版本号并优化遗留 ⑤，存量空白/行尾统一暂缓。`master` 与 `test` 均已推送并与远端同步。除新需求外，剩余待办为：遗留 ①（应用外壳矮视口不滚动）与全站其它页面的触控目标（`chatBatchMode` 死代码已按用户决定删除；`master` 提交信息与其 PROGRESS 相关事项由用户自行处理）。`master` 与 `test` 的文档类差异、`AGENTS_BAK.md` 均已明确按"直接忽略"处理——见「下一步」与「后续优化（待办）」。
+- 一句话现状：规则体系、子智能体、进度/版本管理全部落地并已提交推送；P2 自动化测试框架评估后放弃，测试维持手动。Web 端「知识库文档管理」（管理员门控 + 上传/删除/列表/查看/搜索 + 状态可视化 + 重新入库）已开发完成，自测与独立审查通过，**2026/9/16 用户验收通过**，三处前端问题与遗留 ③④ 修复后合并到 `test` 并推送；规则文档已同步。2026/9/20 应用户要求处理 `master`（cherry-pick 而非合并）、升级版本号并优化遗留 ⑤，存量空白/行尾统一暂缓。`master` 与 `test` 均已推送并与远端同步。**2026/9/20 又新增 Web 端「用户管理」（分支 `knowledge-user-manage`，功能提交 `f6a5a30`）**：用户列表（用户名搜索 / 排序 / 分页，密码不进接口）+ 批量授予与取消管理员（禁止改自己、保底留一个管理员），管理员专属入口位于个人中心「知识库管理」上方，版本号升到 `0.2.0`；自测、浏览器实测与两轮独立审查全部通过，**2026/9/21 用户验收通过并完成文档同步**（README 新增两张管理页截图与说明、AGENTS 陷阱 51 扩为三页并新增 57–60、known-pitfalls 详情 57–60、CHANGELOG 0.2.0）。该分支的合并/推送/删除由用户决定。除新需求外，剩余待办为：遗留 ①（应用外壳矮视口不滚动）与全站其它页面的触控目标（`chatBatchMode` 死代码已按用户决定删除；`master` 提交信息与其 PROGRESS 相关事项由用户自行处理）。`master` 与 `test` 的文档类差异、`AGENTS_BAK.md` 均已明确按"直接忽略"处理——见「下一步」与「后续优化（待办）」。
 
 ## 需求 / 任务清单
 
@@ -37,16 +37,16 @@
 | [x] 完成 | 页面布局 | 按确认结论：不做统计卡、不做分类列；底部「共 N 条 · 第 X/Y 页」分页 |
 | [x] 完成 | 自测 | 后端全链路 + 失败路径 + 403/401 + 回归；前端 build + 浏览器实操；独立代码审查 + 独立功能交叉验证（见改动记录） |
 
-### 本次需求（仅 Web 端）—— 用户管理（管理员授权）｜开发中（2026/9/20，分支 `knowledge-user-manage`）
+### 本次需求（仅 Web 端）—— 用户管理（管理员授权）｜已完成并通过验收（2026/9/21，分支 `knowledge-user-manage`，功能提交 `f6a5a30`）
 
-> 计划清单：`docs/plans/user-manage.md`
+> 计划清单：`docs/plans/user-manage.md`（未纳入版本管理）
 
 | 状态 | 任务 | 说明 / 验收点 |
 |------|------|--------------|
-| [ ] | 用户列表 | 分页（每页 10 条、显示总数与当前页，参考知识库管理页）+ 用户名模糊搜索 + 排序下拉（注册时间倒序/正序、用户名升序）；展示用户名 / 用户ID / 权限 / 注册时间 / 最后登录 / 更新时间，**密码不进接口** |
-| [ ] | 批量改权限 | 批量模式勾选 → 底部操作条「设为管理员(n) / 取消管理员(n)」+ 二次确认弹窗；**禁止改自己**（前端勾选框禁用 + 后端拒绝）；后端兜底「至少保留 1 个管理员」 |
-| [ ] | 页面入口 | 个人中心菜单「用户管理」置于「知识库管理」**上方**，仅管理员可见；非管理员直连 URL 被守卫拦回首页并提示 |
-| [ ] | 自测 | 后端 curl 全链路（401 / 403 / 分页 / 搜索 / 排序 / 两项防护 / 权限即时生效）+ 回归；前端 build + 浏览器实操；独立审查 |
+| [x] 完成 | 用户列表 | 分页（每页 10 条、显示总数与当前页，参考知识库管理页）+ 用户名模糊搜索 + 排序下拉（注册时间倒序/正序、用户名升序）；展示用户名 / 用户ID / 权限 / 注册时间 / 最后登录 / 更新时间，**密码不进接口** |
+| [x] 完成 | 批量改权限 | 批量模式勾选 → 底部操作条「设为管理员(n) / 取消管理员(n)」+ 二次确认弹窗；**禁止改自己**（前端勾选框禁用 + 后端拒绝）；后端兜底「至少保留 1 个管理员」 |
+| [x] 完成 | 页面入口 | 个人中心菜单「用户管理」置于「知识库管理」**上方**，仅管理员可见；非管理员直连 URL 被守卫拦回首页并提示 |
+| [x] 完成 | 自测 | 后端 curl 全链路（401 / 403 / 分页 / 搜索 / 排序 / 两项防护 / 权限即时生效）+ 回归；前端 build + 浏览器实操；独立审查（详见改动记录：另修复审查发现的 4 项缺陷） |
 
 ### 前端问题修复（2026/9/16）
 
@@ -65,11 +65,9 @@
 
 > 已确认但暂不做的优化，集中登记，后续需求按项处理。
 
-- **用户管理功能（给用户授予管理员）**：`role` 字段目前只能手工维护（本次需求未做管理界面）。后续需求：新增用户管理页，可给指定用户授予/撤销管理员；届时移除本文件与 README 里的手工改库说明，并在页面入参处做取值校验。
-  当前手工维护方式（本机未安装 mongosh，可用 MongoDB Compass 执行，或用 `NumberInt` 明确 Int32）：
-  `db.users.updateOne({username:"admin"},{$set:{role:NumberInt(1)}})`
-  取值约定：`0` 普通用户 · `1` 管理员（`role` 为 null 或非 1 一律视为普通用户）。
-- **web 历史对话页与知识库管理页个人信息入口重构**：为修复与历史列表/批量操作条重叠，`/knowledge` 与 `/knowledge-documents` 两页暂时隐藏左下角 user-dock（个人信息组件）。副作用是这两页无法再从该组件进入"修改密码/退出登录"（知识库管理页可经「返回」回首页使用）。后续需重新设计个人信息入口（如侧边栏底部并入个人卡片、或放头部菜单），需同时考虑桌面端与移动端一致性，改完移除 `showDock` 中对这两个路径的临时隐藏分支。
+- **用户管理页的批量机制与「批量改用户名」前置条件（2026/9/21 用户提出，评估后暂不改代码）**：用户指出当前批量条"针对性太强"（按钮写死「设为管理员 / 取消管理员」），将来若要支持批量修改用户名会不适用。评估结论：**批量 UI 可以描述符化**（前端抽一个 `BATCH_ACTIONS` 数组：label / tone / 确认文案 / `excludeSelf` / `submit`，模板 `v-for` 渲染并按描述符分发，将来加操作=加一条描述符 + 一个 api 函数）；**后端建议保持一操作一接口**（`batch-role`、未来的 `batch-username`），不做通用 `batch-update { patch }` 白名单接口——role 与 username 的不变量完全不同，泛化会放大"误暴露可写字段"的风险且错误信息会变模糊。**批量改用户名的真正拦路虎是 `username` 已被当业务键用**，动手前必须先定四件事：①**会话归属**——会话 ID 是 `know_{username}_{chatId}`，历史列表按 `^know_{username}_` 过滤、逐条操作按 `startsWith("know_" + username + "_")` 校验（`AiController.java:74/110/131/155/183`），改名后老会话全部失联，且**旧用户名被他人注册后会"继承"原用户的历史**；②**鉴权**——JWT 的 `sub` 就是用户名（`AuthService.java:38/56`），`AuthFilter.java:44` 只校验 token 有效、**不校验用户是否存在**，改名后旧 token 仍以旧用户名继续工作（新建会话还挂旧前缀），需定"改名后强制重登"并考虑补"用户仍存在"校验；③**唯一性与格式**——`User.username` 的 `@Indexed(unique = true)` 在 Boot 3 默认 `auto-index-creation=false` 下可能并未真正建索引，需应用层查重（含批内互相冲突）+ 明确格式/长度规则；④**数据迁移**——迁历史要批量重写 `chat_memory.conversationId`（唯一索引，需处理冲突），不迁就要接受老会话丢失并告知用户。**"不含 ID"帮不上忙：引用关系挂的是 username，不是 userId。**
+- **首次部署的管理员引导**：用户管理页已可自助授权，日常无需改库；但**库中一个管理员都没有时页面无法自助授权**（先有鸡还是先有蛋），此时只能用 MongoDB Compass 手工执行 `db.users.updateOne({username:"admin"},{$set:{role:NumberInt(1)}})`（本机未装 mongosh，`NumberInt` 用于明确 Int32）。取值约定：`0` 普通用户 · `1` 管理员（`role` 为 null 或非 1 一律视为普通用户）。
+- **web 历史对话页、知识库管理页与用户管理页个人信息入口重构**：为修复与历史列表/批量操作条重叠，`/knowledge`、`/knowledge-documents`、`/user-manage` 三页暂时隐藏左下角 user-dock（个人信息组件）。副作用是这三页无法再从该组件进入"修改密码/退出登录"（两个管理页可经「返回」回首页使用）。后续需重新设计个人信息入口（如侧边栏底部并入个人卡片、或放头部菜单），需同时考虑桌面端与移动端一致性，改完移除 `showDock` 中对这三条路径的临时隐藏分支。**2026/9/21 更新**：`/user-manage` 加入隐藏名单的原因与 `/knowledge-documents` 相同——该页底部同样有固定批量操作条（`z-index:100`），会被 dock（`z-index:999`）压住左端「取消」按钮。
   **2026/9/20 补充核实（区分两个组件）**：被隐藏的是桌面端固定左下角的 `.user-dock`（`App.vue` 51 行，靠 `dock-hidden` 类做 opacity/transform/pointer-events，DOM 仍在）。移动端 /knowledge 的个人信息入口是另一个组件——`KnowledgeChat.vue` 41 行侧边栏底部的 `.sidebar-footer`，条件是 `v-if="isMobile && !batchMode"`：移动端非批量模式下正常显示、进入批量管理时自动隐藏（用的是本地 `batchMode`，机制有效）。因此"无入口"这一副作用只落在**桌面端 /knowledge** 与**两平台的 /knowledge-documents**；**移动端 /knowledge 仍有入口**
 - **manus 超级智能体**：后续慢慢实现该功能
 - **知识库管理页遗留问题（2026/9/16 独立审查发现，存量）**：
@@ -86,6 +84,8 @@
 
 | 日期 | 改动 | 涉及文件/模块 | 是否已测/已审 |
 |------|------|--------------|--------------|
+| 2026/9/21 | **用户管理功能文档同步（按用户要求，未做 git 操作）**：① `README.md`——「界面预览」在 Web 端下新增「Web 端管理页（仅管理员可见）」两张截图（`docs/screenshots/web-knowledge-documents.png` / `web-user-manage.png`，由用户提供的 JPG 用 PIL 转 PNG 入库、保持 2560px 原分辨率）；「功能特性」表新增「用户管理（管理员）」一行；新增「👥 用户管理（管理员）」章节（入口/列表字段/批量授予与撤销/自我保护与保底/权限即时生效 + 首次部署无管理员时的手工引导）；② `AGENTS.md`——陷阱 51 由"两页隐藏 dock"扩为三页（补 `/user-manage`），索引新增 57（Mongo 分页须加唯一二级键）/ 58（超大页码偏移溢出）/ 59（禁止改自己≠至少留一个管理员）/ 60（后台标签页节流影响验证）；③ `docs/known-pitfalls.md`——详情 51 同步、新增 57–60 详情（含实测数据、边界值与未实测部分的说明）；④ `PROGRESS.md`——需求清单置为完成、改动记录、后续优化（批量机制描述符化 + 批量改用户名四项前置条件）、遗留与下一步同步 | `README.md`、`AGENTS.md`、`docs/known-pitfalls.md`、`PROGRESS.md`、`docs/screenshots/web-knowledge-documents.png`、`docs/screenshots/web-user-manage.png` | 文档类改动（截图取自用户实测页面；待用户核查后再做提交） |
+| 2026/9/20 | **Web 端「用户管理」（管理员授权）落地**（分支 `knowledge-user-manage`，功能提交 `f6a5a30`，12 个文件）：① 后端新增 `GET /api/ai/user/list`（分页 + 用户名模糊搜索 + 排序；`Pattern.quote` 转义正则防注入；`size` clamp ≤50、`page` 上限 100 万防偏移溢出）与 `POST /api/ai/user/batch-role`（批量改角色：禁止改自己、写入后复查管理员数并在为 0 时回滚），鉴权在服务层（非管理员 403、无 token 401），返回白名单 DTO（密码不进接口）；② 前端新增 `/user-manage` 页（搜索 / 自定义排序下拉 / 分页 / 批量模式 / 二次确认弹窗，视觉与知识库管理页一致）与个人中心「用户管理」入口（位于「知识库管理」上方、仅管理员可见），路由守卫提示改为按页面标题生成，该页隐藏左下角 dock；③ 版本号 `0.1.1` → `0.2.0` + CHANGELOG 条目 | 新增 `model/UserDTO`、`model/UserPageDTO`、`service/UserManageService`、`controller/UserController`、`frontend/src/views/UserManage.vue`；改 `repository/UserRepository`、`frontend/src/App.vue`、`frontend/src/router/index.js`、`frontend/src/api/request.js`、`pom.xml`、`CHANGELOG.md`、`PROGRESS.md` | 是（后端 curl 20+ 用例：401 / 403 / 分页与 size clamp / 搜索（含 `.*` 转义）/ 三种排序与非法值回落 / 批量校验矩阵 / 自我防护 / 权限即时生效（同一旧 token 403→200→403）/ 幂等与去重 / 回归；前端 `npm run build` + 浏览器实测：菜单顺序与仅管理员可见、非管理员直连被拦回首页、搜索/排序/翻页（临时把 `PAGE_SIZE` 调 3 验证两页后改回）、全选排除自己、确认弹窗（授予绿 / 撤销红）、Esc 关闭、取消不生效、375px 无横向溢出、dock 隐藏、控制台无报错；**两轮独立审查**：接口交叉验证约 100 个子用例（1 项失败）+ 缺陷优先代码审查（P0 无）；据审查修复 4 项缺陷——排序切换未清空勾选、列表请求无时序保护、并发互降可清零管理员、超大页码偏移溢出，另修加载失败误显示"暂无用户数据"、批量失败残留勾选、返回按钮 40→44px、弹窗补 `role="dialog"`、错误文案英文泄漏） |
 | 2026/9/20 | **删除 `chatBatchMode` 死代码（按用户决定）**：移除 `App.vue` 的注释 + `const chatBatchMode = ref(false)` + `provide('chatBatchMode', chatBatchMode)`，以及 `KnowledgeChat.vue` 的注释 + `inject('chatBatchMode', ref(false))` 与 `onBatchManage` / `exitBatchMode` / `onUnmounted` 三处赋值（合计 8 行：`App.vue` 3 行 + `KnowledgeChat.vue` 5 行）。它原本用于「进入历史对话批量管理模式时隐藏桌面端 user-dock」，唯一的读取点在 2026/9/1 被改成"`/knowledge` 整页隐藏 dock"后消失，成为只写不读的死代码；移动端那张个人信息卡片读的是本地 `batchMode`、与它无关，所以行为不变 | `frontend/src/App.vue`、`frontend/src/views/KnowledgeChat.vue`、`PROGRESS.md` | 是（`npm run build` 通过且包体积相应变小：KnowledgeChat 23.91→23.85 kB、index 159.30→159.27 kB；全仓 grep `chatBatchMode` 已无残留；浏览器回归——桌面端 /knowledge 进入/退出批量模式正常（12 个勾选圈、取消按钮在位），移动端 375px 下"打开侧边栏→卡片在 x=0 可见（admin / 修改密码 / 退出登录）→进入批量管理卡片消失且出现 12 个勾选圈→取消后卡片恢复"；首页 `/` 的 `.user-dock` 仍为 `user-dock`（无 `dock-hidden`、opacity 1、显示 admin）未受影响；全程注入的 error / unhandledrejection / console.error / console.warn 采集结果为空。注：验证中途 Vite HMR 整页刷新过一次导致采集器丢失，已重新注入，非应用报错） |
 | 2026/9/20 | **遗留问题 ⑤ 触控目标优化 + 版本号升级 + `master` 同步（cherry-pick）**：① 知识库管理页触控目标统一到 ≥44×44——`.row-btn` 36→44 并补 `flex-shrink: 0`（防止被固定列宽的 `.col-actions` 压扁）、`.pager-btn` 与 `.icon-btn` 40→44、`.check-circle` 保持 22px 视觉并用 `::before` 把可点区域扩到 44×44（显式 `width/height: 44px` + `top/left:50%` + `margin:-22px` 居中；最初写的 `inset:-11px` 实测只有 41.33px——绝对定位伪元素的包含块是 padding box，会被 1.5px 边框吃掉）；列宽同步调整：勾选列 28→44px、操作列 128→144px（3×44 + 2×6），并删掉 ≤768px 的 `.row-btn` 44px、≤1024px 的 `.col-actions` 116px 两条已冗余覆盖；② 版本号 `0.0.1-SNAPSHOT` → `0.1.1`：`CHANGELOG.md` 中 2026-09-16 的功能条目改记为 `0.1.0`，顶部新增 `0.1.1 / 2026-09-20`；③ 按用户决定把 `test` 的功能提交 cherry-pick 到 `master`（不用 merge，避免复活 `master` 已删的语料与 skills 文件；实际 pick 5 条 = `044c12b` / `02237c9` / `e9a038e` / `d6bd839` / `95c798a`，仅 `PROGRESS.md` 一处 modify/delete 冲突并按"保持删除"处理，`master` 已编译通过、未推送） | `frontend/src/views/KnowledgeDocuments.vue`、`pom.xml`、`CHANGELOG.md`、`PROGRESS.md`、`master` 分支 | 是（前端 `npm run build` 通过；浏览器实测：30 个 `.row-btn` 与 `.pager-btn` / `.icon-btn` 均 44×44 且 `flex-shrink` 为 0；`.check-circle` 视觉 22×22、`::before` 计算值恰为 44×44，`elementFromPoint` 在中心 ±21px 命中按钮自身、±22px 落空（不外溢到名称列，名称列在 +30px 仍为 `col-name`）；1280 与 375 宽度下页面与表格行均无横向溢出、批量模式下勾选列 44px 仍不挤破卡片；回归通过：批量模式进出/单选/全选、详情弹窗开关（关闭按钮 44×44）、分块 14 项高度统一 87.3px、排序下拉三项与选中生效、翻页 1↔2 页） |
 | 2026/9/16 | **按用户反馈恢复「重新入库」入口 + 二次确认**：先前的收紧把管理员日常用的重跑入口一起收掉了（用户反馈"重新入库的按钮怎么没了"），故 ① `canReindex` 从白名单（仅未入库/失败）恢复为 `!isRunning(doc)`，预处理中/向量化中不可点、其余状态均可重跑；② 新增 `confirmReindexDoc` 状态与 `askReindex`/`confirmReindex` 函数 + 确认弹窗（复用既有 `.modal-content` 与 `.modal-btn.confirm.green`，文案含文件名与待删切片数），**已完成**文档点重跑先确认（重跑先删旧切片，失败会从「已完成」掉到「失败」），未入库/失败无切片可丢则直接重跑 | `frontend/src/views/KnowledgeDocuments.vue`、`AGENTS.md`（陷阱 55 重写）、`docs/known-pitfalls.md`（详情 55 重写）、`CHANGELOG.md`、`PROGRESS.md` | 是（前端 build 通过 + 格式核查；浏览器实测：10 行「已完成」显示 10 个重新入库按钮；点按钮弹确认框、文案为"将先删除已有 2 个切片"；**取消** → 0 次 reindex 请求、状态仍「已完成」；**确认重跑** → 1 次 `POST .../reindex`、状态转「预处理中」、toast 正确，轮询后回到「已完成」，接口复查 `COMPLETED` + `chunkCount: 2`（对切片最少的一篇 Git 文档做了真实重跑，幂等））；**副作用已处理**：该文档受版本管理，重跑会原地覆盖磁盘文件（本次多出 2 个尾部空行），已 git checkout 还原，工作区无残留；该行为已记入陷阱 56 |
@@ -107,7 +107,8 @@
 - ⚠️ 主目录与 `yuque-sync/` 若出现同名 `.md`（只能由手工放置产生，上传会被重名校验拒绝），列表会出现两行同名、操作只作用于主目录那份。彻底修需把文档标识升级为「相对路径」，本次记为已知限制
 - ⚠️ 上传的文档会被预处理**就地覆盖**（去 HTML 内联标签 + `##` 前插分割线），上传弹窗已提示。注意 `DocumentPreprocessor` 的 HTML 标签正则会吞掉尖括号内容（如 `List<String>` → `List`），这是既有离线流水线的同一行为，本次未改其语义（如需改进属另一需求）
 - ⚠️ 任务状态存内存：后端重启后「失败原因」丢失，降级为「未入库」（文件与向量不受影响，点「重新入库」可恢复）
-- ⚠️ 本机未安装 mongosh，管理员授权目前只能用 MongoDB Compass 或自备脚本执行（命令见「后续优化（待办）」）
+- ⚠️ 本机未安装 mongosh：管理员授权已可在「用户管理」页自助完成，只有"库中一个管理员都没有"的首次引导需要 MongoDB Compass 手工执行（命令见「后续优化（待办）」）
+- ⚠️ 本次自测留下的测试账号：`test_usermgmt`（role=0，密码 `TestUsermgmt2026`）——注册接口需要图片验证码、无法脚本批量造号，为验证"非管理员 403 / 权限即时生效"只能真注册一个；用户自行注册的 `test123123` 同为测试账号。应用未提供删除用户功能，清理需手工操作数据库
 - AGENTS_BAK.md 是用户自己的备份文档（66 KB、未跟踪）——**已明确（2026/9/20）：直接忽略**，不作为待办、不进库、不参与差异对比
 - `master` 与 `test` 的差异——**已明确（2026/9/20）：对比时直接无视**。差异只来自既定安排：`master` 不放文档类文件（`.agents/skills/**` 28 个、`notes/` 19 个、`src/main/resources/document/` 语料 23 个，共 70 个），也不跟踪 `PROGRESS.md`，都不是问题。实践约定：① 对比两分支时把这些文档路径排除，例如 `git diff test master -- . ':(exclude).agents' ':(exclude)notes' ':(exclude)src/main/resources/document' ':(exclude)PROGRESS.md'`；② `PROGRESS.md` 只在 `test` 上维护；③ 功能代码改动仍需 cherry-pick 到 `master`（文档差异之外的代码，merge 不会带过去）
 - ⚠️ `master` 上 `e9a038e`（文档同步）与 `95c798a` 的提交信息仍写着"同步/更新 `PROGRESS.md`"，但 `master` 不跟踪该文件、这部分内容并未落地（cherry-pick 时按"保持删除"处理）。是否改写这两条消息待用户决定（改写需 force-push `master`）
@@ -134,4 +135,6 @@
 10. ~~**待用户决定：`chatBatchMode` 死代码怎么处理**~~ **已完成（2026/9/20）：按用户决定删除**。共删 8 行——`App.vue` 的注释 + `const chatBatchMode = ref(false)` + `provide('chatBatchMode', chatBatchMode)`（3 行）；`KnowledgeChat.vue` 的注释 + `inject('chatBatchMode', ref(false))` 与 `onBatchManage` / `exitBatchMode` / `onUnmounted` 三处赋值（5 行）。它原本的用途是「进入历史对话批量管理模式时隐藏桌面端 user-dock」（引入于 `cbc2750`，2026/8/26），该读取点在 `36f3378`（2026/9/1）被"整页隐藏 dock"取代后就成了只写不读的死代码。回归已验证（见改动记录）。**将来做「个人信息入口重构」时若要恢复桌面端 dock 并按批量模式隐藏**，需重建等价的跨组件信号（照 `isSidebarOpen` 那套 provide/inject 写），或改走侧边栏底部卡片（见「后续优化（待办）」）
 11. ~~**待用户决定：`master` 上两条提交信息与实际不符**——`e9a038e`、`95c798a` 的消息写了"同步/更新 `PROGRESS.md`"，但 `master` 不跟踪该文件；改写需 force-push `master`~~ **已划掉（2026/9/20）：用户明确 `master` 里的 PROGRESS 相关内容由用户自行处理**
 12. ~~**待用户决定：`AGENTS_BAK.md` 去留**~~ **已明确（2026/9/20）：用户自己的备份文档，直接忽略**（不删、不进库、不算差异）
-13. **后续需求与长期事项**（清单见「后续优化（待办）」）：用户管理功能（授予管理员）、个人信息入口重构、全站触控目标、manus 超级智能体
+13. **后续需求与长期事项**（清单见「后续优化（待办）」）：用户管理页批量机制描述符化与「批量改用户名」前置条件（用户名被当业务键，见「后续优化」）、个人信息入口重构、全站触控目标、manus 超级智能体
+14. **用户管理功能待用户执行 git 操作（2026/9/21）**：功能提交 `f6a5a30`（12 个文件）已在分支 `knowledge-user-manage` 上且**未推送**；文档同步（README / AGENTS / known-pitfalls / PROGRESS / 截图）在用户核查通过后再提交。本次**全程未做任何 git 操作**（既未提交文档、也未推送），合并/推送/删除分支由用户决定
+15. ~~**`docs/plans/` 是否纳入版本管理（待用户决定）**~~ **已明确（2026/9/21）：不入库**——用户在本地 `.gitignore` 第 27 行加入了 `docs/plans`（该 `.gitignore` 改动由用户自行处理、本次未纳入提交），因此计划清单只作为本机过程文档，`docs/plans/` 也不进 `AGENTS.md` 的「文档地图」。约定：仅在用户**明确要求**时才把生成的计划写入该目录
