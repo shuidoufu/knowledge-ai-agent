@@ -86,6 +86,12 @@
 
 56. **知识库文档目录写入限制（Web 端上传/删除）**：运行时上传的文档落在 `app.knowledge.document-dir`（默认 `src/main/resources/document`）。四个要点：①**打包成 jar 后该目录只读，上传与删除必定失败**，需以源码目录方式运行（`mvnw spring-boot:run`）或把配置指向可写目录；②dev 下加载器不能只用 `classpath:`——`classpath:document/*.md` 解析到 `target/classes`，运行时写进源码目录不会被加载，须做成「真实目录存在则扫 `file:` 该目录，否则回退 classpath」（`classpath:` 分支供 jar 运行用）；③`DocumentPreprocessor` 插入 `---` 分割线**必须幂等**（前一个非空行已是 `---` 就跳过），否则重新入库会在每个 `##` 前累积重复分割线；④「重新入库」要**先删该文档旧向量再重跑全流程**，只重跑不清理会留下孤儿切片；⑤ 重跑（与上传一样）会**原地覆盖磁盘上的 md**，所以对**受版本管理**的内置文档点一次「重新入库」，它就会在 git 工作区显示为已修改——实测一次重跑会在文件末尾多出 2 个空行（`processContent` 第 5 步 `stripLeading() + "\n"` 与原文 CRLF 尾部交互所致），但**不会无界累积**：第二次起稳定在 2 个空行；若不想留下该 diff，重跑后 `git checkout -- <文件>` 还原即可。另：切片 id 用「文件名#正文 MD5」（与启动加载同源），换标题拼接方式会导致同一文档重复向量化
 
+57. **MongoDB 分页排序必须追加唯一二级键**：用户管理列表按注册时间排序时只给了 `Sort.by(desc("createdAt"))`，而 MongoDB 的排序是**不稳定**的——同值记录（同一秒注册、批量插入）的相对顺序在两次查询间可能不同，表现为翻页时**重复出现同一条或整条漏掉**。修复：每种排序都追加唯一二级键，例如 `Sort.by(Order.desc("createdAt"), Order.asc("username"))`，按用户名排序时用 `Order.asc("username"), Order.asc("userId")`（二级键不能与主键相同）。验证手法：`size=2` 逐页遍历，把各页用户名并集与一次全量请求比对，要求「不重不漏且分页拼接顺序与全量顺序一致」，三种排序各做一遍（本项目实测 union=6 / distinct=6 / 重复 0 / 缺失 0）
+
+58. **超大页码会让分页偏移溢出（`total` 变垃圾值）**：`PageRequest.of(page - 1, size)` 内部按 `(page-1)*size` 算 offset，**这是 int 运算**。实测 `GET /ai/user/list?page=2147483647&size=2` 返回 `{"total":4294967294,"page":2147483647,"totalPages":2147483647,"items":[首屏前 2 条]}`——offset 溢成负数后被当作 0（skip 失效），count 与实际条数一起把 `total` 算成垃圾值。精确边界（size=2）：`page=1073741824`（offset 2147483646）仍正确返回空页，`page=1073741825`（offset 2147483648）即溢出。修复：**给 page 加上限**（`int pageIndex = Math.max(1, Math.min(page, MAX_PAGE))`，`MAX_PAGE = 1000000` 时 offset 最多 5×10⁷，留足安全余量）；修复后同一请求返回 `total:6 / totalPages:3 / items:[]`。注意 `size` 原本就有上限（clamp 到 50），page 却只做了下界，容易被漏掉
+
+59. **「禁止改自己」不等于「至少留一个管理员」**：用户管理批量改角色最初只在写入**前**做前置校验 `countAdmins() - 待降级人数 >= 1`，并认为"操作者本人禁止被改，所以操作者必定留任管理员，不会清零"——这个推理只在单请求视角成立：两个管理员 A、B **同时互降**时，两个请求各自读到 `countAdmins()=2`、待降级数 1，都判定通过并各自写入，最终库里 **0 个管理员**（知识库管理与用户管理入口全部失效，只能改库恢复；`AdminAccountChecker` 只在启动时打一行 warn，不会自动恢复）。本项目 Mongo 无事务、写路径就是 `save`，所以采用**补偿式**修复：写入后复查 `countAdmins()`，为 0 则把本次变更的用户逐个回滚为 `ADMIN` 并抛 400「至少保留一个管理员账号」（降级场景下本次变更的目标必然原为管理员，回滚是精确的），同时删掉那个不可达的前置校验。⚠️ 该并发路径**未实测**（需两个管理员精确同时操作），是代码审查阶段推导出来的
+
 ---
 
 ## 前端陷阱（Vue Web）
@@ -122,7 +128,7 @@
 
 50. **侧边栏 `.history-list` 的滚动条与右侧"收起历史对话"按钮（`.toggle-sidebar-btn`）重叠**：`.history-list { overflow-y: scroll }` 的自定义 `::-webkit-scrollbar`（5px）固定在列表右边缘（x=255~260），而切换按钮 `position:absolute; left:260px; top:50%; translateX(-50%)` 中心压在侧边栏右边界（x=246~274），两者在垂直中部区域重叠，视觉上"滚动条被按钮切断/穿过"。**正确修复：让收起按钮整体移到侧边栏右缘外侧，而不是给列表让位**——`.toggle-sidebar-btn` 去掉 `translateX(-50%)`（`left: 260px` 即按钮左边缘贴右缘，占聊天区一侧 x=260~288），`.history-list` 保持无右侧 margin、滚动条吸附最右侧边框，两者互不重叠（该按钮定位上下文是 `.chat-layout`，不在 `.sidebar` 内，不受其 `overflow:hidden` 裁剪）。曾尝试 `.history-list { margin-right: 18px }` 让滚动条左移让位，虽避开了按钮但滚动条离右边框太远，视觉不佳，已还原。仅桌面端受影响（移动端 `.toggle-sidebar-btn` 已是 `display:none`）
 
-51. **user-dock（左下角个人信息组件）与页面内容重叠**：`.user-dock` 是 `position:fixed; left:20px; bottom:20px; z-index:999`。两处重叠：`/knowledge` 页侧边栏展开时叠在历史列表底部，盖住历史项与标题无法点击；`/knowledge-documents` 页在视口宽约 769–850px 时叠在批量操作条上（dock `z-index:999` > 批量条 `100`），压住「取消」按钮文字并抢走点击。**临时修复：`App.vue` 的 `showDock` 对 `/knowledge` 与 `/knowledge-documents` 两个路由恒返回 `false`**（其余页面如首页仍显示）。⚠️ 副作用：这两页暂时无法从该组件进入"修改密码/退出登录"（知识库管理页可经「返回」回首页使用），属**用户明示接受的临时方案**，后续需重新设计个人信息入口/布局（见 PROGRESS.md「后续优化」）
+51. **user-dock（左下角个人信息组件）与页面内容重叠**：`.user-dock` 是 `position:fixed; left:20px; bottom:20px; z-index:999`。三处重叠：`/knowledge` 页侧边栏展开时叠在历史列表底部，盖住历史项与标题无法点击；`/knowledge-documents` 页在视口宽约 769–850px 时叠在批量操作条上（dock `z-index:999` > 批量条 `100`），压住「取消」按钮文字并抢走点击；`/user-manage` 页同理——该页底部同样有固定批量操作条，dock 会压住左端的「取消」按钮。**临时修复：`App.vue` 的 `showDock` 对 `/knowledge`、`/knowledge-documents`、`/user-manage` 三个路由恒返回 `false`**（其余页面如首页仍显示）。⚠️ 副作用：这三页暂时无法从该组件进入"修改密码/退出登录"（知识库管理与用户管理页可经「返回」回首页使用），属**用户明示接受的临时方案**，后续需重新设计个人信息入口/布局（见 PROGRESS.md「后续优化」）
 
 52. **flex 列容器的子项被压扁、内容被裁切（分块结果全部变成 1px）**：`.chunk-list` 是 `display:flex; flex-direction:column` 容器，子项 `.chunk-item` 自带 `overflow:hidden`。按 Flexbox 规范，子项 `overflow` 不是 `visible` 时其「自动最小尺寸」为 **0**，于是子项被压到几乎没有高度、内容被 `overflow:hidden` 裁掉——实测 76 个分块项每个 `offsetHeight:1px` 而 `scrollHeight:44px`（`flexShrink:1`），表现为"所有分块挤在一页、内容不显示、也看不到滚动条"；叠加内层 `max-height:320px` 的独立滚动，又导致"有的有滚动条、有的没有"。**修复：给子项显式 `flex-shrink: 0`**。这是陷阱 42（横向 `min-width:auto` 把内容挤出屏幕）的竖向版本；排查手段是量 `offsetHeight` 与 `scrollHeight` 是否相等
 
@@ -131,6 +137,8 @@
 54. **详情类弹窗的请求时序竞态**：`openDetail` 是"先开弹窗再等接口"。若先点 A（响应慢）→ 关闭 → 点 B，A 的响应后到会**覆盖 B 的内容**（标题显示 B、正文却是 A）；若 A 请求失败，还会把刚为 B 打开的弹窗一起关掉。**修复：`openDetail` 用递增请求序号，响应回来先比对，不是最新一次就丢弃（`catch` 分支同理，避免误报错与误关弹窗）；`closeDetail` 也递增序号，使进行中的请求失效**。验证手法：给首个 `/content` 请求注入 2.5s 延迟制造乱序，再撤掉守卫做反证对比（撤掉时显示 A、恢复后显示 B）
 
 55. **「重新入库」的显示条件与二次确认（不要收紧成"仅失败可见"）**：该按钮既是**失败恢复**手段，也是管理员日常的**主动重跑**入口（改完磁盘上的 md、想重建切片时用）。曾按"设计意图是失败恢复"把 `canReindex` 从 `!isRunning(doc)` 收紧为白名单 `['NOT_INDEXED','PREPROCESS_FAILED','VECTORIZE_FAILED']`，结果**已完成文档的重跑入口全消失**，用户随即反馈"按钮怎么没了"——判断可操作状态时，先确认该操作是否也是日常主动操作，别把常用入口一起收掉。**最终方案**：`canReindex` 回到 `!isRunning(doc)`（预处理中/向量化中不可点），并给**已完成**文档加二次确认弹窗——因为重跑会先删除已有切片，一旦重跑失败（如预处理报错），文档会从「已完成」掉到「失败」；未入库与失败状态本来就没有切片可丢，点了直接重跑、不弹确认。**教训**：收紧前端可见状态前，先问该操作是否属于日常流程；涉及"替换已有数据"的动作，用确认弹窗而不是隐藏入口来控风险
+
+60. **后台标签页（`document.hidden`）会被浏览器节流，别把节流现象当应用缺陷**：用自动化浏览器验证页面时若标签页不在前台（`document.visibilityState === 'hidden'`），Chrome 会节流，产生三类**假象**：①**CSS 过渡不结束** → Vue `v-if` 的离场元素长期留在 DOM 里（实测排序面板 `aria-expanded` 已是 `false`、`opacity: 0`，但元素还在，看起来像"面板没关上"）；②**`setTimeout` 被大幅延迟** → toast 到点不消失（实测两三个请求过去了，上一条 toast 仍在 DOM 中）；③**自动化的可操作性检查超时** → 报 `Timeout waiting for locator ... Do not retry the same locator`，而同一元素 `document.elementFromPoint` 命中自身（`hitIsSelf: true`）、`disabled` 状态与尺寸（22×22）都正常、`count()` 也是 1，加 `{ force: true }` 仍超时。判别与绕行：先在页面里读 `document.hidden` / `visibilityState` 确认是否被节流（`browser.capabilities.visibility.set(true)` 只控制面板可见性，**窗口不在前台时页面仍是 hidden**）；确认节流后改用页面内断言（`locator.evaluate(el => el.click())` 触发 + `querySelector` 读状态）验证行为，并在报告里如实标注环境限制——同款排序面板在可见状态下已验证正常，属环境问题而非回归
 
 ---
 

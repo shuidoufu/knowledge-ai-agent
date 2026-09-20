@@ -171,6 +171,9 @@
 45. **历史会话按 updatedAt 排序**：null 回退 createdAt 且排最后，勿在 MongoDB 层 Sort
 46. **RAG 引用门控**：仅当回复含 [n] 标注才下发 references
 56. **知识库文档目录写入限制**：上传写在 `app.knowledge.document-dir`，jar 部署该目录只读、上传必失败；加载器须「真实目录优先 + classpath 回退」；预处理分割线插入须幂等；重新入库先删旧向量并**原地覆盖磁盘文件**（受版本管理的文档重跑后会在 git 工作区变成已修改）
+57. **MongoDB 分页排序须加唯一二级键**：主排序字段有同值时顺序不稳定，翻页会重复或漏行（按注册时间排序时须再按 username 排序）
+58. **超大页码会让分页偏移溢出**：`page * size` 超出 int 上限后 skip 被截断，`total` 变成垃圾值并返回首页数据，page 必须设上限
+59. **「禁止改自己」不等于「至少留一个管理员」**：无事务时两个管理员并发互降会把管理员清零，须写入后复查管理员数并在为 0 时回滚
 
 ### 前端陷阱（Vue Web）
 6. **localStorage 非响应式**：必须用 auth.js 响应式 ref，禁止 computed 里读 getUsername()
@@ -185,11 +188,12 @@
 44. **AI 下载地址需前端链接化**：linkify.js 链接化 /api/ 根相对路径，跳过 pre/code
 49. **语音识别(STT)错误提示**：录音过短(<0.6s)前端拦截；后端 400 响应带 message；前端优先取 response.data.message，再按状态码/网络/超时映射中文提示
 50. **历史对话滚动条与收起按钮重叠**：收起按钮置于侧边栏右缘外侧（left:260px 不居中），滚动条保持贴右侧边框
-51. **user-dock 与页面内容重叠**：`/knowledge` 与 `/knowledge-documents` 两页 `showDock` 恒 false，暂时隐藏个人信息组件（布局待后续优化）
+51. **user-dock 与页面内容重叠**：`/knowledge`、`/knowledge-documents`、`/user-manage` 三页 `showDock` 恒 false，暂时隐藏个人信息组件（布局待后续优化）
 52. **flex 列容器子项被压扁裁切**：子项 `overflow` 非 visible 时「自动最小尺寸」为 0，必须显式 `flex-shrink: 0`
 53. **自定义浮层（下拉/菜单）必须 Teleport + fixed**：`html, body { overflow-x: hidden }` 使 body 成为滚动容器，absolute 浮层会被裁剪
 54. **详情类请求要做时序保护**：先发的响应后到会覆盖后发的，用递增请求序号只采纳最新
 55. **「重新入库」按"非处理中"显示 + 已完成二次确认**：它既是失败恢复也是主动重跑，收紧成"仅失败显示"会砍掉日常重跑入口；已完成重跑会先删旧切片，需确认
+60. **后台标签页（`document.hidden`）会被浏览器节流**：CSS 过渡不结束（元素残留 DOM）、定时器（toast 自动消失）延迟、浏览器自动化的可操作性检查超时——验证页面行为前先确认 `document.visibilityState`
 
 ### 脚本工具陷阱（html-to-md / 文档处理）
 35. **HtmlToMarkdownConverter 要点**：getWholeText / 递归子节点防自环 / 跳过代码围栏 / 保留原文
