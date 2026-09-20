@@ -185,7 +185,8 @@ cd miniprogram && npm install && npm run dev:mp-weixin   # 小程序编译
 - ✅ 只**精确 `git add <文件>`**；禁止 `git add .` / `-A` / `*`
 - ✅ 提交前 `git status` 核对改动列表；提交后 `git push`（先 `git pull`）
 - ✅ 一律排除：`frontend/dist/`、`**/__pycache__/`、`.idea/`、`application*.yml`（含密钥）、测试临时文件
-- ✅ 提交信息格式：首行 `YYYY/M/D：`（不补零、全角冒号）；每条一行 `1. 名词+动词；`；多行信息用 heredoc
+- ✅ 提交信息格式：首行 `YYYY/M/D：`（不补零、全角冒号），**首行后不空行**（第 1 条紧接首行）；每条一行 `1. 名词+动词；`；多行信息用 heredoc
+- ✅ 提交信息**要简洁、只写重点**：让人一眼看清"做了什么、影响什么"，不堆专业术语、不写实现细节与操作步骤（细节留给代码与 PROGRESS.md）
 
 ---
 
