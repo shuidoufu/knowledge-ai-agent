@@ -90,6 +90,10 @@
 	              <Lock class="dropdown-icon" size="18" />
 	              修改密码
 	            </button>
+	            <button v-if="reactiveIsAdmin" type="button" class="dock-dropdown-item" @click="goUserManage">
+	              <Users class="dropdown-icon" size="18" />
+	              用户管理
+	            </button>
 	            <button v-if="reactiveIsAdmin" type="button" class="dock-dropdown-item" @click="goKnowledgeDocuments">
 	              <Database class="dropdown-icon" size="18" />
 	              知识库管理
@@ -113,7 +117,7 @@ import {
   isLoggedIn, getUsername, removeToken, token,
   username as reactiveUsername, isAdmin as reactiveIsAdmin,
 } from './utils/auth'
-import { Check, AlertCircle, Info, User, Lock, LogOut, Database } from '@lucide/vue'
+import { Check, AlertCircle, Info, User, Lock, LogOut, Database, Users } from '@lucide/vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -168,11 +172,11 @@ function updateIsMobile() {
   isMobile.value = window.innerWidth <= 768
 }
 
-// 是否显示 dock：移动端聊天页隐藏（避免遮挡底部输入区）；/knowledge 历史对话页与 /knowledge-documents 知识库管理页始终隐藏（避免与历史对话列表、批量操作条重叠）
+// 是否显示 dock：移动端聊天页隐藏（避免遮挡底部输入区）；/knowledge 历史对话页、/knowledge-documents 知识库管理页与 /user-manage 用户管理页始终隐藏（避免与历史对话列表、批量操作条重叠）
 const showDock = computed(() => {
   if (isMobile.value && (route.path === '/knowledge' || route.path === '/manus')) return false
-  // 历史对话页与知识库管理页隐藏个人信息组件，避免与列表/底部批量操作条重叠（入口可经页面返回键回到首页使用）
-  if (route.path === '/knowledge' || route.path === '/knowledge-documents') return false
+  // 历史对话页、知识库管理页与用户管理页隐藏个人信息组件，避免与列表/底部批量操作条重叠（入口可经页面返回键回到首页使用）
+  if (route.path === '/knowledge' || route.path === '/knowledge-documents' || route.path === '/user-manage') return false
   return true // 其他页面始终显示
 })
 
@@ -212,6 +216,7 @@ function handleClickOutside(e) {
 }
 function goChangePassword() { closeDropdown(); router.push('/change-password') }
 function goKnowledgeDocuments() { closeDropdown(); router.push('/knowledge-documents') }
+function goUserManage() { closeDropdown(); router.push('/user-manage') }
 function logout() {
   request.post('/auth/logout').catch(() => {})
   removeToken()

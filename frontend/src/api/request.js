@@ -282,3 +282,20 @@ export function batchDeleteKnowledgeDocuments(filenames) {
 export function reindexKnowledgeDocument(filename) {
   return request.post(`/ai/knowledge/document/${encodeURIComponent(filename)}/reindex`)
 }
+
+/**
+ * 用户列表（管理员）：分页 + 用户名搜索 + 排序
+ */
+export function fetchUsers({ keyword = '', page = 1, size = 10, sort = 'time_desc' } = {}) {
+  const query = 'keyword=' + encodeURIComponent(keyword)
+    + '&page=' + page + '&size=' + size
+    + '&sort=' + encodeURIComponent(sort)
+  return request.get('/ai/user/list?' + query)
+}
+
+/**
+ * 批量修改用户角色（管理员）：role 取值 0 普通用户 / 1 管理员
+ */
+export function batchUpdateUserRole(userIds, role) {
+  return request.post('/ai/user/batch-role', { userIds, role })
+}

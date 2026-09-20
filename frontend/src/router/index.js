@@ -39,6 +39,12 @@ const routes = [
     component: () => import('../views/KnowledgeDocuments.vue'),
     meta: { title: '知识库管理', requiresAuth: true, requiresAdmin: true },
   },
+  {
+    path: '/user-manage',
+    name: 'UserManage',
+    component: () => import('../views/UserManage.vue'),
+    meta: { title: '用户管理', requiresAuth: true, requiresAdmin: true },
+  },
 ]
 
 const router = createRouter({
@@ -64,7 +70,7 @@ router.beforeEach(async (to) => {
       }
     }
     if (!isAdmin.value) {
-      return { path: '/', query: { msg: '仅管理员可访问知识库管理' } }
+      return { path: '/', query: { msg: `仅管理员可访问${to.meta.title || '该页面'}` } }
     }
   }
 })
